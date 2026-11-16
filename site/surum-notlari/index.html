@@ -173,7 +173,9 @@ $ cat /sys/kernel/debug/dri/0/i915_display_info
         <strong><code>epixos-base</code> güncelleme paketi.</strong>
         ISO'yu yeniden yazmadan düzeltmeleri <code>apt</code> ile almak için.
         Yardımcı komutlar, <code>vga=791</code> GRUB ayarı, <code>nouveau</code>
-        kara listesi ve arka ışık servisini taşır. 11 KB, bağımlılık yok.
+        kara listesi ve arka ışık servisini taşır. Ayrıca kurumsal renkli
+        duvar kağıdı ve simgeyi getirir, DPMS/ekran kararmasını kapatır.
+        13 KB, bağımlılık yok.
       </li>
       <li>
         <strong>Derleme sonrası otomatik denetim.</strong>
@@ -186,6 +188,20 @@ $ cat /sys/kernel/debug/dri/0/i915_display_info
         <strong>Ekran kartı ayrıntılı teşhisi.</strong>
         <code>epix-doctor</code> ve <code>epix-hw</code> araçları GPU, panel ve
         sürücü durumunu raporlar.
+      </li>
+      <li>
+        <strong>Duvar kağıdı ve simge kurumsal logoyla uyumlu.</strong>
+        Eski duvar kağıdı camgöbeği (<code>#22d3ee</code>) kullanıyordu; kurumsal
+        logo ise lime (<code>#e2ff5e</code>) ve koyu deniz mavisi
+        (<code>#16404b</code>). Palet logodan alındı, motif olarak logodaki
+        “x” harfinin iki çapraz darbesi kullanıldı.
+      </li>
+      <li>
+        <strong>Ekran kararması kapatıldı.</strong>
+        Eski panel ve inverter kombinasyonlarında DPMS “off” sonrası ekran geri
+        gelmeyebiliyor: kullanıcı masaüstünde çalışıyor ama ekran siyah kalıyor.
+        <code>idle-dim</code>, uyku ve kilit kapatıldı;
+        <code>epixos-no-dpms.desktop</code> her oturumda DPMS'i devre dışı bırakır.
       </li>
     </ul>
   </div>
@@ -224,7 +240,7 @@ $ cat /sys/kernel/debug/dri/0/i915_display_info
        <code>epixos-base</code> paketi düzeltmeleri taşır.</p>
     <pre><code>curl -LO https://os.epix.tr/indir/epixos-base_0.1.202611_all.deb
 sha256sum epixos-base_0.1.202611_all.deb
-# ba527e2e88a7565ef6a1cbf91180ac815cd576dfc0e27d93666759e29eaaf11e
+# 711b8631be7f6a9bd6e385bb0c51da65b57acf803d868446dca5ccc2a4ed59db
 
 sudo dpkg -i epixos-base_0.1.202611_all.deb
 sudo apt -f install      # eksik bağımlılık varsa</code></pre>

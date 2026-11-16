@@ -32,6 +32,10 @@ err() { printf '\033[1;31m[X]\033[0m %s\n' "$*" >&2; }
 inf "1/5 paket iskeleti hazırlanıyor"
 rm -rf "$BUILD"
 mkdir -p "$BUILD"/{DEBIAN,usr/local/bin,usr/share/epixos,etc/default/grub.d,etc/modprobe.d,etc/initramfs-tools/conf.d,etc/systemd/system}
+mkdir -p "$BUILD/usr/share/backgrounds/epixos"
+mkdir -p "$BUILD/usr/share/icons/hicolor/scalable/apps"
+mkdir -p "$BUILD/etc/xdg/autostart"
+mkdir -p "$BUILD/etc/dconf/db/local.d"
 
 inf "2/5 dosyalar chroot'tan kopyalanıyor"
 
@@ -74,6 +78,60 @@ EPIX_RELEASE=$EPIX_RELEASE
 EPIX_CODENAME=$EPIX_CODENAME
 EPIX_PACKAGE_BUILD=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
+
+# ---- marka varlıkları: duvar kağıdı + simge
+# Palet kurumsal logodan: lime #e2ff5e, navy #16404b, deep #0e2a31.
+# Eski camgobegi (#22d3ee) duvar kağıdı marka disiydi.
+if [[ -f "$CHROOT/usr/share/backgrounds/epixos/epixos-default.svg" ]]; then
+  install -m 644 "$CHROOT/usr/share/backgrounds/epixos/epixos-default.svg" \
+    "$BUILD/usr/share/backgrounds/epixos/epixos-default.svg"
+  ok "  duvar kağıdı (epixos-default.svg)"
+else
+  err "  duvar kağıdı YOK — atlandı"
+fi
+
+if [[ -f "$CHROOT/usr/share/icons/hicolor/scalable/apps/epixos-logo.svg" ]]; then
+  install -m 644 "$CHROOT/usr/share/icons/hicolor/scalable/apps/epixos-logo.svg" \
+    "$BUILD/usr/share/icons/hicolor/scalable/apps/epixos-logo.svg"
+  ok "  simge (epixos-logo.svg)"
+fi
+
+# ---- DPMS / ekran kararması
+# B560 gibi eski panel+inverter kombinasyonlarında DPMS "off" sonrası ekran
+# geri gelmeyebiliyor: kullanıcı masaüstünde ama ekran siyah.
+if [[ -f "$CHROOT/etc/xdg/autostart/epixos-no-dpms.desktop" ]]; then
+  install -m 644 "$CHROOT/etc/xdg/autostart/epixos-no-dpms.desktop" \
+    "$BUILD/etc/xdg/autostart/epixos-no-dpms.desktop"
+  ok "  /etc/xdg/autostart/epixos-no-dpms.desktop"
+fi
+
+# dconf: güç/ekran ayarları + duvar kağıdı renkleri
+# Tam dosya yerine drop-in veriyoruz ki kullanıcının kendi dconf düzenlemeleri
+# 00-epix-defaults içinde kalmasın; bu dosya 50- ile sonra okunur.
+cat > "$BUILD/etc/dconf/db/local.d/50-epixos-power" <<'DCONF'
+# epixOS — ekran kararması ve güç yönetimi
+# Eski panellerde DPMS off sonrası ekran geri gelmeyebiliyor.
+[org/gnome/settings-daemon/plugins/power]
+idle-dim=false
+sleep-inactive-ac-type='nothing'
+sleep-inactive-battery-type='nothing'
+
+[org/gnome/desktop/screensaver]
+lock-enabled=false
+idle-activation-enabled=false
+
+[org/gnome/desktop/session]
+idle-delay=uint32 0
+
+[org/gnome/desktop/background]
+picture-uri='file:///usr/share/backgrounds/epixos/epixos-default.svg'
+picture-uri-dark='file:///usr/share/backgrounds/epixos/epixos-default.svg'
+picture-options='zoom'
+primary-color='#0e2a31'
+secondary-color='#16404b'
+DCONF
+chmod 644 "$BUILD/etc/dconf/db/local.d/50-epixos-power"
+ok "  /etc/dconf/db/local.d/50-epixos-power"
 
 inf "3/5 DEBIAN dizini"
 
@@ -121,6 +179,18 @@ fi
 # epix-backlight servisini etkinleştir
 systemctl enable epix-backlight.service >/dev/null 2>&1 || true
 
+# dconf sistem veritabanını yenile (duvar kağıdı + güç ayarları)
+# Yapılmasaydı 50-epixos-power dosyası yazılır ama okunmazdı.
+if command -v dconf >/dev/null 2>&1; then
+    dconf update >/dev/null 2>&1 || true
+    echo "epixos-base: dconf güncellendi"
+fi
+
+# icon cache (simge değiştiyse)
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor >/dev/null 2>&1 || true
+fi
+
 # initramfs: nouveau kara listesi initramfs'te de geçerli olsun
 #
 # ÖNEMLİ: "update-initramfs -u" PARAMETRESİZ çağrılmamalı.
@@ -157,6 +227,10 @@ cat > "$BUILD/DEBIAN/postrm" <<'POSTRM'
 set -e
 if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
     systemctl disable epix-backlight.service >/dev/null 2>&1 || true
+    # dconf veritabanını bu dosya olmadan yeniden derle
+    if command -v dconf >/dev/null 2>&1; then
+        dconf update >/dev/null 2>&1 || true
+    fi
 fi
 exit 0
 POSTRM
