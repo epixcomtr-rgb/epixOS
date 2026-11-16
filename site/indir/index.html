@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>İndir — epixOS 0.1 (2026.11) | Epix</title>
+<meta name="description" content="epixOS 0.1 (2026.11) kavak ISO kalıbını indir. 1.8 GB, amd64, GNOME masaüstü, 2 GB RAM'de akıcı. USB'ye yazma ve kurulum adımları."/>
+<link rel="canonical" href="https://os.epix.tr/indir/"/>
+
+<meta property="og:type" content="website"/>
+<meta property="og:site_name" content="epixOS — Epix"/>
+<meta property="og:locale" content="tr_TR"/>
+<meta property="og:title" content="İndir — epixOS 0.1 (2026.11)"/>
+<meta property="og:description" content="epixOS 0.1 kavak ISO kalıbı. 1.8 GB, amd64, GNOME, 2 GB RAM'de akıcı."/>
+<meta property="og:url" content="https://os.epix.tr/indir/"/>
+<meta property="og:image" content="https://os.epix.tr/assets/img/og.png"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="theme-color" content="#16404b"/>
+
+<link rel="icon" href="/assets/img/favicon.png" type="image/png"/>
+<link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png"/>
+<link rel="manifest" href="/site.webmanifest"/>
+
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap"/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..600,0..1,0&display=swap"/>
+<link rel="stylesheet" href="/assets/css/tx.css?v=20261002a"/>
+<link rel="stylesheet" href="/assets/css/os.css?v=20261115a"/>
+<link rel="stylesheet" href="/assets/css/indir.css?v=20261116a"/>
+</head>
+<body>
+
+<header class="site-header" id="siteHeader">
+  <div class="wrap nav">
+    <a class="brand" href="https://epix.tr/" aria-label="Epix ana sayfa">
+      <img src="/assets/img/logo.png" alt="Epix Software House" width="436" height="238"/>
+    </a>
+    <ul class="menu">
+      <li><a href="/">Genel bakış</a></li>
+      <li><a href="/indir/" aria-current="page">İndir</a></li>
+      <li><a href="/#ozellikler">Özellikler</a></li>
+      <li><a href="/#ajan">AI Ajan</a></li>
+      <li><a href="https://epix.tr/iletisim">İletişim</a></li>
+    </ul>
+    <div class="nav-cta">
+      <a class="btn btn-primary btn-sm" href="#kalip">
+        <span class="ms" aria-hidden="true">download</span>İndir
+      </a>
+    </div>
+    <button class="burger" type="button" aria-label="Menü" aria-expanded="false" id="burger">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<main>
+
+<!-- ============ KALIP ============ -->
+<section class="os-hero">
+  <div class="os-hero-glow" aria-hidden="true"></div>
+  <div class="wrap">
+    <div class="os-head" style="margin-bottom:40px">
+      <span class="os-eyebrow">
+        <span class="os-live" aria-hidden="true"></span>
+        epixOS 0.1 &middot; 2026.11 &middot; kavak
+      </span>
+      <h1>ISO kalıbını indir</h1>
+      <p class="lead">
+        Tek kalıp, hem canlı oturum hem kurulum. USB'ye yazıp doğrudan denersin;
+        beğenirsen aynı USB'den diske kurarsın.
+      </p>
+    </div>
+
+    <div class="dl-card" id="kalip">
+      <div>
+        <span class="dl-badge dl-badge--live">Kararlı sürüm</span>
+        <h3>epixOS 0.1 (2026.11) — kavak</h3>
+        <p class="dl-sub">amd64 &middot; canlı oturum + kurulum &middot; TR varsayılan, EN ikinci</p>
+      </div>
+      <a class="dl-btn" href="/indir/epixOS-0.1-2026.11-amd64.iso" download>
+        <span class="ms" aria-hidden="true">download</span>ISO indir
+      </a>
+
+      <dl class="dl-meta">
+        <div><dt>Boyut</dt><dd>1.8 GB</dd></div>
+        <div><dt>Mimari</dt><dd>amd64</dd></div>
+        <div><dt>Çekirdek</dt><dd>Linux 6.8</dd></div>
+        <div><dt>Masaüstü</dt><dd>GNOME</dd></div>
+      </dl>
+
+      <div class="dl-sha">
+        <span class="lbl">SHA-256</span>
+        <code id="sha">813442bb8d81f7d75a0ae3a7c7be7511b9524cd4e5f39eba5921f14418662f46</code>
+        <button class="dl-copy" type="button" id="kopyala" data-done="0">Kopyala</button>
+      </div>
+    </div>
+
+    <div class="dl-note">
+      <span class="ms" aria-hidden="true">verified_user</span>
+      <div>
+        <h4>İndirdikten sonra doğrula</h4>
+        <p>Kalıbın bozulmadığını SHA-256 ile kontrol et. Bozuk bir yazım, kurulum
+           sırasında okuma hatası verir — bu kontrol iki saniye sürer.</p>
+        <p><b>Linux:</b> <code>sha256sum epixOS-0.1-2026.11-amd64.iso</code><br/>
+           <b>Windows:</b> <code>certutil -hashfile epixOS-0.1-2026.11-amd64.iso SHA256</code></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ USB'YE YAZMA ============ -->
+<section class="os-section os-alt" id="usb">
+  <div class="wrap">
+    <div class="os-head">
+      <h2>USB'ye yaz</h2>
+      <p class="lead">
+        Kalıbı USB'ye <b>olduğu gibi</b> yazman gerekir. Dosyayı kopyalamak çalışmaz —
+        USB'nin önyüklenebilir olması için ham yazma şart.
+      </p>
+    </div>
+
+    <div class="grid-2" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:32px">
+      <div>
+        <h3 style="margin-bottom:18px">Linux / macOS</h3>
+        <ol class="dl-steps">
+          <li>
+            <strong>USB'yi tak ve adını bul</strong>
+            <p>Yanlış diski seçmemek için mutlaka doğrula.</p>
+            <pre><code>lsblk -o NAME,SIZE,LABEL,MOUNTPOINT</code></pre>
+          </li>
+          <li>
+            <strong>Yaz</strong>
+            <p><code>/dev/sdX</code> yerine kendi USB'ni yaz. Sonundaki rakam olmasın.</p>
+            <pre><code>sudo dd if=epixOS-0.1-2026.11-amd64.iso \
+  of=/dev/sdX bs=4M status=progress oflag=sync</code></pre>
+          </li>
+          <li>
+            <strong>Belleği boşalt</strong>
+            <p>Yazma bitmeden USB'yi çıkarma.</p>
+            <pre><code>sync</code></pre>
+          </li>
+        </ol>
+      </div>
+
+      <div>
+        <h3 style="margin-bottom:18px">Windows</h3>
+        <ol class="dl-steps">
+          <li>
+            <strong>Rufus'u indir</strong>
+            <p><a href="https://rufus.ie/" target="_blank" rel="noopener">rufus.ie</a> adresinden al.</p>
+          </li>
+          <li>
+            <strong>Kalıbı seç</strong>
+            <p>Aygıt: USB'n. Önyükleme seçimi: indirdiğin <code>.iso</code> dosyası.</p>
+          </li>
+          <li>
+            <strong>Başlat</strong>
+            <p>Bölüm şeması <b>MBR</b>, hedef sistem <b>BIOS</b> seç.
+               Uyarı çıkarsa "ISO Image mode" ile devam et.</p>
+          </li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ KURULUM ============ -->
+<section class="os-section" id="kurulum">
+  <div class="wrap">
+    <div class="os-head">
+      <h2>Kurulum</h2>
+      <p class="lead">USB'den aç, canlı oturumu dene, sonra diske kur.</p>
+    </div>
+
+    <ol class="dl-steps" style="max-width:760px">
+      <li>
+        <strong>USB'den önyükle</strong>
+        <p>Açılışta <code>F12</code> (veya <code>Esc</code>/<code>F2</code>) ile önyükleme menüsünü aç,
+           USB'yi seç. GRUB menüsünde <b>epixOS 0.1 — Canlı Oturum</b> ile devam et.</p>
+      </li>
+      <li>
+        <strong>Canlı oturumu dene</strong>
+        <p>Hiçbir şey kurulmadan RAM'de çalışır. Wi-Fi, ses, ekran ve AI ajanını
+           burada test edebilirsin. Diske hiçbir şey yazılmaz.</p>
+      </li>
+      <li>
+        <strong>Diske kur</strong>
+        <p>Masaüstündeki <b>epixOS Kur</b> simgesini çalıştır. Hedef disk olarak
+           kendi diskinizi seçin; <b>bölümleri silmeden önce yedek alın</b>.</p>
+      </li>
+      <li>
+        <strong>İlk açılış</strong>
+        <p>Kurulumdan sonra kullanıcı adı, şifre ve dil ayarları sorulur.
+           SSH ilk açılıştan itibaren çalışır.</p>
+      </li>
+    </ol>
+
+    <div class="dl-note">
+      <span class="ms" aria-hidden="true">info</span>
+      <div>
+        <h4>Eski donanımda ekran siyah kalırsa</h4>
+        <p>Bazı eski Intel ekran kartlarında (Ironlake ve öncesi) çekirdek paneli
+           devralırken sinyal üretmez. Bu durumda GRUB menüsünde
+           <b>Güvenli Mod (VESA)</b> girdisini seç — epixOS bunu zaten
+           <code>vga=791</code> ile birlikte gönderiyor.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TEKNİK ============ -->
+<section class="os-section os-alt" id="teknik">
+  <div class="wrap">
+    <div class="os-head">
+      <h2>Teknik künye</h2>
+    </div>
+    <div style="max-width:820px">
+      <table class="dl-spec">
+        <tbody>
+          <tr><th>Sürüm</th><td>0.1 &middot; sürüm <b>2026.11</b> &middot; kod adı <b>kavak</b></td></tr>
+          <tr><th>Taban</th><td>Ubuntu 24.04 LTS (noble)</td></tr>
+          <tr><th>Çekirdek</th><td>Linux <code>6.8.0-149-generic</code></td></tr>
+          <tr><th>Masaüstü</th><td>GNOME (<code>gnome-core</code>, 2 GB RAM hedefi)</td></tr>
+          <tr><th>Dil</th><td><code>tr_TR.UTF-8</code> varsayılan, <code>en_US.UTF-8</code> ikinci; klavye <code>tr,us</code></td></tr>
+          <tr><th>Tarayıcı</th><td>GNOME Web (epiphany) — snap yok</td></tr>
+          <tr><th>AI ajanı</th><td>DeepSeek Harness, <code>127.0.0.1:3080</code></td></tr>
+          <tr><th>SSH</th><td>İlk açılıştan itibaren açık, port 22</td></tr>
+          <tr><th>Önyükleme</th><td>Legacy BIOS (MBR) + UEFI</td></tr>
+          <tr><th>ISO boyutu</th><td>1.8 GB</td></tr>
+          <tr><th>Boşta RAM</th><td>~651 MB (X + GNOME)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="f-grid">
+      <div class="f-brand">
+        <img src="/assets/img/logo.png" alt="Epix Software House" width="436" height="238"/>
+        <p>Hafif, hızlı ve AI ile yönetilen Linux dağıtımı.</p>
+      </div>
+      <div class="f-col">
+        <h4>epixOS</h4>
+        <a href="/">Genel bakış</a>
+        <a href="/indir/">İndir</a>
+        <a href="/#ozellikler">Özellikler</a>
+        <a href="/#sss">SSS</a>
+      </div>
+      <div class="f-col">
+        <h4>Epix</h4>
+        <a href="https://epix.tr/">Ana sayfa</a>
+        <a href="https://epix.tr/iletisim">İletişim</a>
+        <a href="https://hub.epix.tr/giris">Epix Hub</a>
+      </div>
+      <div class="f-col">
+        <h4>Sürüm</h4>
+        <a href="#teknik">epixOS 0.1</a>
+        <a href="#teknik">2026.11 — kavak</a>
+        <a href="#teknik">amd64</a>
+      </div>
+    </div>
+    <div class="f-bottom">
+      <span>&copy; <span id="yil">2026</span> Epix Software House. epixOS açık kaynak bir projedir.</span>
+      <span><a href="https://epix.tr/">epix.tr</a></span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var y = document.getElementById('yil');
+  if (y) y.textContent = new Date().getFullYear();
+
+  var burger = document.getElementById('burger');
+  var menu = document.querySelector('.menu');
+  if (burger && menu) {
+    burger.addEventListener('click', function () {
+      var open = menu.classList.toggle('open');
+      burger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    menu.querySelectorAll('a').forEach(function (a) {
+      a.addEventListener('click', function () {
+        menu.classList.remove('open');
+        burger.setAttribute('aria-expanded', 'false');
+      });
+    });
+  }
+
+  var header = document.getElementById('siteHeader');
+  if (header) {
+    var onScroll = function () {
+      header.classList.toggle('scrolled', window.scrollY > 8);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  }
+
+  var btn = document.getElementById('kopyala');
+  var sha = document.getElementById('sha');
+  if (btn && sha) {
+    btn.addEventListener('click', function () {
+      var text = sha.textContent.trim();
+      var done = function () {
+        btn.textContent = 'Kopyalandı';
+        btn.setAttribute('data-done', '1');
+        setTimeout(function () {
+          btn.textContent = 'Kopyala';
+          btn.setAttribute('data-done', '0');
+        }, 1800);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, function () {
+          var r = document.createRange();
+          r.selectNodeContents(sha);
+          var s = window.getSelection();
+          s.removeAllRanges();
+          s.addRange(r);
+          done();
+        });
+      } else {
+        var r = document.createRange();
+        r.selectNodeContents(sha);
+        var s = window.getSelection();
+        s.removeAllRanges();
+        s.addRange(r);
+        done();
+      }
+    });
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+# epixOS — kaynak ve çıktı ayrımı
+dist/
+iso/binary/
+iso/chroot/
+iso/cache/
+iso/build/
+iso/.build/
+iso/rootfs/
+iso/*.iso
+iso/*.list
+iso/*.files
+iso/*.packages
+iso/config/binary
+iso/config/chroot
+kernel/build/
+*.deb
+*.log
+*.iso
+*.squashfs
+.DS_Store
+# site yedeği / geçici
+site/assets/css/tx.css.bak
+
+# ISO kopyasi sitede yayinlanir, depoya girmez (1.8 GB)
+site/indir/*.iso
