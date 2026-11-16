@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Sürüm notları — epixOS 0.1 (2026.11) kavak | Epix</title>
+<meta name="description" content="epixOS 0.1 (2026.11) kavak sürüm notları: eski Intel panellerinde siyah ekran düzeltmesi (vga=791), NVIDIA Optimus hayalet ekranı, ilk açılış ayarları ve yükseltme yolu."/>
+<link rel="canonical" href="https://os.epix.tr/surum-notlari/"/>
+
+<meta property="og:type" content="article"/>
+<meta property="og:site_name" content="epixOS — Epix"/>
+<meta property="og:locale" content="tr_TR"/>
+<meta property="og:title" content="Sürüm notları — epixOS 0.1 (2026.11)"/>
+<meta property="og:description" content="Eski Intel panellerinde siyah ekran düzeltmesi, Optimus hayalet ekranı, yükseltme yolu."/>
+<meta property="og:url" content="https://os.epix.tr/surum-notlari/"/>
+<meta property="og:image" content="https://os.epix.tr/assets/img/og.png"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="theme-color" content="#16404b"/>
+
+<link rel="icon" href="/assets/img/favicon.png" type="image/png"/>
+<link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png"/>
+<link rel="manifest" href="/site.webmanifest"/>
+
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap"/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..600,0..1,0&display=swap"/>
+<link rel="stylesheet" href="/assets/css/tx.css?v=20261002a"/>
+<link rel="stylesheet" href="/assets/css/os.css?v=20261115a"/>
+<link rel="stylesheet" href="/assets/css/surum.css?v=20261116a"/>
+</head>
+<body>
+
+<header class="site-header" id="siteHeader">
+  <div class="wrap nav">
+    <a class="brand" href="https://epix.tr/" aria-label="Epix ana sayfa">
+      <img src="/assets/img/logo.png" alt="Epix Software House" width="436" height="238"/>
+    </a>
+    <ul class="menu">
+      <li><a href="/">Genel bakış</a></li>
+      <li><a href="/indir/">İndir</a></li>
+      <li><a href="/surum-notlari/" aria-current="page">Sürüm notları</a></li>
+      <li><a href="/#sss">SSS</a></li>
+      <li><a href="https://epix.tr/iletisim">İletişim</a></li>
+    </ul>
+    <div class="nav-cta">
+      <a class="btn btn-primary btn-sm" href="/indir/">
+        <span class="ms" aria-hidden="true">download</span>İndir
+      </a>
+    </div>
+    <button class="burger" type="button" aria-label="Menü" aria-expanded="false" id="burger">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<main>
+
+<!-- ============ SÜRÜM BAŞLIĞI ============ -->
+<section class="rel-hero">
+  <div class="wrap">
+    <span class="os-eyebrow">
+      <span class="os-live" aria-hidden="true"></span>
+      Kararlı sürüm &middot; yayınlandı
+    </span>
+    <div class="rel-ver">
+      <h1>epixOS 0.1</h1>
+      <span class="tag">2026.11 &middot; kavak</span>
+    </div>
+    <p class="rel-lede">
+      İlk kararlı sürüm. Ubuntu 24.04 LTS tabanlı, GNOME masaüstlü, 2 GB RAM'de
+      akıcı çalışan; ilk açılıştan itibaren SSH açık ve AI ajanı hazır gelen
+      hafif bir Linux dağıtımı. Bu sürümde en çok emek, <b>eski donanımda
+      ekranın açılmasına</b> gitti.
+    </p>
+
+    <dl class="rel-meta">
+      <div><dt>Yayın tarihi</dt><dd>16 Kasım 2026</dd></div>
+      <div><dt>Taban</dt><dd>Ubuntu 24.04 LTS</dd></div>
+      <div><dt>Çekirdek</dt><dd><code>6.8.0-149-generic</code></dd></div>
+      <div><dt>ISO</dt><dd>1.8 GB &middot; amd64</dd></div>
+      <div><dt>sha256</dt><dd><code>813442bb…2f46</code></dd></div>
+    </dl>
+  </div>
+</section>
+
+<section class="wrap" style="padding-bottom:96px">
+
+  <div class="rel-intro">
+    <span class="ms" aria-hidden="true">verified</span>
+    <div>
+      <p>Bu sürüm gerçek donanımda test edildi: Lenovo B560 (Intel Pentium P6200,
+         Ironlake GPU, 4 GB RAM) üzerinde kurulum, açılış, masaüstü, Wi-Fi,
+         SSH ve yeniden başlatma doğrulandı.</p>
+      <p>ISO'yu <a href="/indir/">indirme sayfasından</a> alabilirsin.
+         Kurulu bir epixOS varsa <a href="#yukseltme">yükseltme bölümüne</a> git.</p>
+    </div>
+  </div>
+
+  <!-- ---------- DÜZELTMELER ---------- -->
+  <div class="rel-group">
+    <h2><span class="rel-pill rel-pill--fix">Düzeltmeler</span> Ekran ve açılış</h2>
+    <ul class="rel-list">
+      <li>
+        <strong>Eski Intel panellerinde siyah ekran giderildi.</strong>
+        Ironlake ve öncesi GPU'larda (ör. <code>8086:0046</code>) çekirdek paneli
+        devralırken sinyal üretmiyordu: X 1366x768 modunu kuruyor, GNOME masaüstünü
+        çiziyor, arka ışık %100 oluyor — <b>ama ekran tamamen siyah kalıyordu.</b>
+        Çözüm: <code>vga=791</code> (1024x768x16 VESA framebuffer) çekirdek komut
+        satırında. GRUB menüsünde ve <code>/etc/default/grub.d/99-epixos.cfg</code>
+        içinde sabitlendi.
+        <div class="rel-proof">
+          <h4>Nasıl doğrulandı</h4>
+          <pre><code># framebuffer'da gerçekten masaüstü çiziliyor muydu?
+$ dd if=/dev/fb0 … örnek piksel
+RGB(46, 52, 54)        # = #2E3436, GNOME koyu arka planı
+
+$ glxinfo -B
+OpenGL renderer string: Mesa Intel(R) HD Graphics (ILK)
+
+$ cat /sys/kernel/debug/dri/0/i915_display_info
+[CRTC:45:pipe A]  enable=yes, active=yes, mode="1366x768"
+
+# yazılım çalışıyor, panel sinyal almıyor → modez parametresi eksikti</code></pre>
+          <p>Karşılaştırma: Pardus 25.0 aynı makinede tam olarak
+             <code>vga=791 noswap splash quiet</code> kullanıyor.</p>
+        </div>
+      </li>
+      <li>
+        <strong>NVIDIA Optimus makinelerinde hayalet ekran.</strong>
+        Intel + NVIDIA çift GPU'lu dizüstülerde <code>nouveau</code> yüklenince
+        X'te var olmayan bir <code>VGA-1-2</code> çıkışı oluşuyor ve masaüstü
+        2390x768'e genişliyordu; GNOME görünmeyen ekrana çiziyordu.
+        <code>nouveau</code> kara listeye alındı, panel Intel'de kaldı.
+      </li>
+      <li>
+        <strong>Açılışta arka ışık %100.</strong>
+        <code>systemd-backlight</code> bozuk kayıtlı bir parlaklığı geri
+        yükleyip ekranı karartabiliyordu. <code>epix-backlight.service</code>
+        açılışta parlaklığı en yükseğe alır; kullanıcı istediğinde düşürür.
+      </li>
+      <li>
+        <strong><code>casper-md5check</code> kaldırıldı.</strong>
+        1.8 GB kalıbın md5'ini hesaplıyordu; USB 2.0 ve eski CPU'da
+        <b>5–15 dakika siyah ekran</b> demekti. Artık atlanıyor —
+        bütünlük kontrolü <code>sha256</code> ile indirme sırasında yapılıyor.
+      </li>
+      <li>
+        <strong>Kernel panic <code>exitcode=0x00000100</code> giderildi.</strong>
+        squashfs oluşturulurken <code>-e dev</code> yazımı dizinin kendisini de
+        hariç tutuyordu; <code>/dev</code>, <code>/proc</code>, <code>/sys</code>,
+        <code>/run</code> imajda yoktu ve <code>switch_root</code>
+        <code>/root/dev/console</code> açamıyordu. Doğrusu <code>-e 'dev/*'</code>.
+      </li>
+      <li>
+        <strong>SSH host anahtarları artık kalıcı.</strong>
+        chroot içinde <code>ssh-keygen -A</code> sessizce atlanabiliyordu;
+        anahtarlar açıkça üretilip imaja kopyalanıyor.
+      </li>
+    </ul>
+  </div>
+
+  <!-- ---------- YENİ ---------- -->
+  <div class="rel-group">
+    <h2><span class="rel-pill rel-pill--new">Yeni</span> Özellikler</h2>
+    <ul class="rel-list">
+      <li>
+        <strong>İndirme sayfası.</strong>
+        <a href="/indir/">os.epix.tr/indir</a> — sha256 kopyalama, Linux/macOS
+        <code>dd</code> ve Windows Rufus adımları, kurulum rehberi, teknik künye.
+      </li>
+      <li>
+        <strong><code>epixos-base</code> güncelleme paketi.</strong>
+        ISO'yu yeniden yazmadan düzeltmeleri <code>apt</code> ile almak için.
+        Yardımcı komutlar, <code>vga=791</code> GRUB ayarı, <code>nouveau</code>
+        kara listesi ve arka ışık servisini taşır. 11 KB, bağımlılık yok.
+      </li>
+      <li>
+        <strong>Derleme sonrası otomatik denetim.</strong>
+        <code>scripts/verify-iso.sh</code> artık <code>vga=791</code> ve
+        <code>gfxpayload=keep</code> parametrelerinin ISO'da olduğunu denetliyor,
+        squashfs içindeki kritik dosyaları tek tek doğruluyor. Bu düzeltmenin
+        sessizce geri gelmesini engelliyor.
+      </li>
+      <li>
+        <strong>Ekran kartı ayrıntılı teşhisi.</strong>
+        <code>epix-doctor</code> ve <code>epix-hw</code> araçları GPU, panel ve
+        sürücü durumunu raporlar.
+      </li>
+    </ul>
+  </div>
+
+  <!-- ---------- BAŞARIM ---------- -->
+  <div class="rel-group">
+    <h2><span class="rel-pill rel-pill--perf">Başarım</span> Kaynak kullanımı</h2>
+    <ul class="rel-list">
+      <li><strong>Boşta ~651 MB RAM</strong> — X + GNOME ile ölçüldü (hedef ≤ 850 MB).</li>
+      <li><strong>ISO 1.8 GB</strong> — hedef ≤ 2.3 GB.</li>
+      <li>
+        <strong>Derleme ilerlemesi görünür.</strong> debootstrap sayacı,
+        <code>mksquashfs -percentage</code> ve ISO boyut sayacı; uzun derlemede
+        süreç sessiz kalmıyor.
+      </li>
+    </ul>
+  </div>
+
+  <!-- ---------- GÜVENLİK ---------- -->
+  <div class="rel-group">
+    <h2><span class="rel-pill rel-pill--sec">Güvenlik</span> Varsayılanlar</h2>
+    <ul class="rel-list">
+      <li><strong>AI anahtarı ISO'ya gömülmez.</strong> Kullanıcı ilk açılışta
+          kendi anahtarını girer; <code>0600</code> izinli kimlik dosyasında saklanır.</li>
+      <li><strong>Kalıcı kurulumda <code>live</code> kullanıcısı yok.</strong>
+          Şifresiz sudo yalnızca canlı oturumda geçerli.</li>
+      <li><strong>Snap yok.</strong> Tarayıcı GNOME Web (epiphany);
+          <code>snapd</code> maskeli.</li>
+    </ul>
+  </div>
+
+  <!-- ---------- YÜKSELTME ---------- -->
+  <div class="rel-up" id="yukseltme">
+    <h2>Kurulu sistemi yükselt</h2>
+    <p>Zaten epixOS 0.1 kuruluysa ISO'yu yeniden yazman gerekmez.
+       <code>epixos-base</code> paketi düzeltmeleri taşır.</p>
+    <pre><code>curl -LO https://os.epix.tr/indir/epixos-base_0.1.202611_all.deb
+sha256sum epixos-base_0.1.202611_all.deb
+# ba527e2e88a7565ef6a1cbf91180ac815cd576dfc0e27d93666759e29eaaf11e
+
+sudo dpkg -i epixos-base_0.1.202611_all.deb
+sudo apt -f install      # eksik bağımlılık varsa</code></pre>
+    <div class="rel-warn">
+      <span class="ms" aria-hidden="true">warning</span>
+      <div>
+        <p><b>Yeniden başlatmadan önce</b> <code>vga=791</code>'in yerinde
+           olduğunu doğrula:</p>
+        <p style="margin-top:8px"><code>grep vga=791 /boot/grub/grub.cfg</code></p>
+        <p style="margin-top:8px">Parametre yoksa eski Intel panellerinde ekran
+           siyah kalır. Ayrıca initramfs boyutu ~69 MB olmalı;
+           <b>40 MB'ın altındaysa bozuktur</b> ve sistem açılmaz.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- ÖNCEKİ SÜRÜMLER ---------- -->
+  <div class="rel-group rel-prev" style="margin-top:56px">
+    <h2>Önceki sürümler</h2>
+    <div class="rel-prev-item">
+      <div>
+        <h3>epixOS 0.1 — kavak</h3>
+        <p>İlk kararlı sürüm. Canlı oturum + kurulum, GNOME, AI ajanı, açık SSH.</p>
+      </div>
+      <time datetime="2026-11-16">16 Kasım 2026</time>
+    </div>
+    <div class="rel-prev-item">
+      <div>
+        <h3>Derleme öncesi</h3>
+        <p>ISO üretim hattı ilk kez uçtan uca çalıştı; BIOS + UEFI önyükleme doğrulandı.</p>
+      </div>
+      <time datetime="2026-11-15">15 Kasım 2026</time>
+    </div>
+  </div>
+
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="f-grid">
+      <div class="f-brand">
+        <img src="/assets/img/logo.png" alt="Epix Software House" width="436" height="238"/>
+        <p>Hafif, hızlı ve AI ile yönetilen Linux dağıtımı.</p>
+      </div>
+      <div class="f-col">
+        <h4>epixOS</h4>
+        <a href="/">Genel bakış</a>
+        <a href="/indir/">İndir</a>
+        <a href="/surum-notlari/">Sürüm notları</a>
+        <a href="/#sss">SSS</a>
+      </div>
+      <div class="f-col">
+        <h4>Epix</h4>
+        <a href="https://epix.tr/">Ana sayfa</a>
+        <a href="https://epix.tr/iletisim">İletişim</a>
+        <a href="https://hub.epix.tr/giris">Epix Hub</a>
+      </div>
+      <div class="f-col">
+        <h4>Sürüm</h4>
+        <a href="/surum-notlari/">epixOS 0.1</a>
+        <a href="/surum-notlari/">2026.11 — kavak</a>
+        <a href="/surum-notlari/">amd64</a>
+      </div>
+    </div>
+    <div class="f-bottom">
+      <span>&copy; <span id="yil">2026</span> Epix Software House. epixOS açık kaynak bir projedir.</span>
+      <span><a href="https://epix.tr/">epix.tr</a></span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var y = document.getElementById('yil');
+  if (y) y.textContent = new Date().getFullYear();
+
+  var burger = document.getElementById('burger');
+  var menu = document.querySelector('.menu');
+  if (burger && menu) {
+    burger.addEventListener('click', function () {
+      var open = menu.classList.toggle('open');
+      burger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    menu.querySelectorAll('a').forEach(function (a) {
+      a.addEventListener('click', function () {
+        menu.classList.remove('open');
+        burger.setAttribute('aria-expanded', 'false');
+      });
+    });
+  }
+
+  var header = document.getElementById('siteHeader');
+  if (header) {
+    var onScroll = function () {
+      header.classList.toggle('scrolled', window.scrollY > 8);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  }
+})();
+</script>
+</body>
+</html>

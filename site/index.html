@@ -41,6 +41,7 @@
       <li><a href="#ajan">AI Ajan</a></li>
       <li><a href="#hafiflik">Hafiflik</a></li>
       <li><a href="#sss">SSS</a></li>
+      <li><a href="/surum-notlari/">Sürüm notları</a></li>
       <li><a href="https://epix.tr/iletisim">İletişim</a></li>
     </ul>
     <div class="nav-cta">
@@ -96,17 +97,17 @@
         </div>
         <pre class="os-term-body"><span class="c">$</span> hostnamectl
   <span class="k">İşletim Sistemi:</span> epixOS 0.1 (2026.11)
-  <span class="k">Çekirdek:</span> Linux 7.0.0-epix
-  <span class="k">Masaüstü:</span> GNOME
+  <span class="k">Çekirdek:</span> Linux 6.8.0-149-generic
+  <span class="k">Masaüstü:</span> GNOME 46
 
 <span class="c">$</span> epix info
-  epixOS 0.1 (2026.11) — GNOME
-  dil: tr_TR.UTF-8  oturum: ubuntu
-  Mem: 812Mi / 2.0Gi
+  epixOS 0.1 (2026.11) — kavak
+  dil: tr_TR.UTF-8  oturum: epix
+  Mem: 651Mi / 2.0Gi
 
 <span class="c">$</span> epix-ssh status
   sshd: <span class="ok">aktif</span>  port 22
-  adres: 192.168.1.42/24
+  adres: 192.168.1.22/24
 
 <span class="c">$</span> epix-ai key sk-••••••••••••
   <span class="ok">==></span> anahtar kaydedildi (0600)
@@ -263,6 +264,11 @@
     </details>
 
     <details class="os-faq">
+      <summary>İndirebilir miyim?<span class="ms" aria-hidden="true">expand_more</span></summary>
+      <p>Evet, 0.1 sürümü yayında. ISO 1.8 GB ve <a href="/indir/">indirme sayfasından</a> alınabilir; sha256 özeti orada. USB'ye yazma ve kurulum adımları da aynı sayfada. Sürüm değişiklikleri için <a href="/surum-notlari/">sürüm notlarına</a> bak.</p>
+    </details>
+
+    <details class="os-faq">
       <summary>Canlı USB'de değişikliklerim kalıcı mı?<span class="ms" aria-hidden="true">expand_more</span></summary>
       <p>Hayır. Canlı oturum RAM'de çalışır ve yeniden başlatınca sıfırlanır — bu bilinçli bir karar. Kalıcı kullanım için diske kurulum yapılır; böylece <code>apt upgrade</code> çalışır ve tam disk hızı elde edilir.</p>
     </details>
@@ -278,13 +284,23 @@
     </details>
 
     <details class="os-faq">
+      <summary>Eski dizüstümde ekran siyah kalıyor, ne yapmalıyım?<span class="ms" aria-hidden="true">expand_more</span></summary>
+      <p>Ironlake ve öncesi Intel ekran kartlarında (ör. Lenovo B560) panel sinyal üretmeyebilir: sistem çalışır, masaüstü çizilir ama ekran siyah kalır. epixOS bunu <code>vga=791</code> parametresiyle çözer ve varsayılan olarak gönderir. GRUB menüsünde <b>Güvenli Mod (VESA)</b> girdisini de deneyebilirsin. Ayrıntılı açıklama <a href="/surum-notlari/">sürüm notlarında</a>.</p>
+    </details>
+
+    <details class="os-faq">
+      <summary>Kurulu sistemi yeniden kurmadan güncelleyebilir miyim?<span class="ms" aria-hidden="true">expand_more</span></summary>
+      <p>Evet. <code>epixos-base</code> paketi düzeltmeleri <code>apt</code> ile taşır: yardımcı komutlar, <code>vga=791</code> GRUB ayarı, <code>nouveau</code> kara listesi ve arka ışık servisi. 11 KB, bağımlılık yok. Kurulum: <code>sudo dpkg -i epixos-base_*.deb</code>. Paket <a href="/indir/#paket">indirme sayfasında</a>.</p>
+    </details>
+
+    <details class="os-faq">
       <summary>SSH neden varsayılan açık?<span class="ms" aria-hidden="true">expand_more</span></summary>
       <p>Kurulum ve uzaktan yönetim için. Canlı oturumda <code>live</code> kullanıcısı şifresiz sudo sahibidir, bu yüzden yalnızca güvendiğin ağlarda kullan. Kalıcı kurulumda <code>live</code> kullanıcısı oluşturulmaz.</p>
     </details>
 
     <details class="os-faq">
-      <summary>Ne zaman indirebilirim?<span class="ms" aria-hidden="true">expand_more</span></summary>
-      <p>0.1 sürümü derleme ve test aşamasında. Hazır olduğunda indirme bağlantısı ve sha256 özeti bu sayfaya eklenecek.</p>
+      <summary>Snap paketleri kullanılıyor mu?<span class="ms" aria-hidden="true">expand_more</span></summary>
+      <p>Hayır. <code>snapd</code> maskeli ve tarayıcı olarak GNOME Web (epiphany) geliyor. Amaç hem hafiflik hem de ilk açılışta indirme beklemeden çalışan bir sistem.</p>
     </details>
   </div>
 </section>
@@ -324,6 +340,8 @@
         <a href="#ozellikler">Özellikler</a>
         <a href="#ajan">AI Ajan</a>
         <a href="#hafiflik">Hafiflik</a>
+        <a href="/indir/">İndir</a>
+        <a href="/surum-notlari/">Sürüm notları</a>
         <a href="#sss">SSS</a>
       </div>
       <div class="f-col">
@@ -334,9 +352,9 @@
       </div>
       <div class="f-col">
         <h4>Sürüm</h4>
-        <a href="#sss">epixOS 0.1</a>
-        <a href="#sss">2026.11 — kavak</a>
-        <a href="#sss">amd64</a>
+        <a href="/surum-notlari/">epixOS 0.1</a>
+        <a href="/surum-notlari/">2026.11 — kavak</a>
+        <a href="/surum-notlari/">amd64</a>
       </div>
     </div>
     <div class="f-bottom">
