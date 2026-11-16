@@ -109,6 +109,45 @@
   </div>
 </section>
 
+<!-- ============ GÜNCELLEME PAKETİ ============ -->
+<section class="os-section" id="paket">
+  <div class="wrap">
+    <div class="os-head">
+      <h2>Mevcut kurulumu güncelle</h2>
+      <p class="lead">
+        Zaten epixOS kuruluysa ISO'yu yeniden yazman gerekmez.
+        <code>epixos-base</code> paketi düzeltmeleri <code>apt</code> ile taşır.
+      </p>
+    </div>
+
+    <div class="dl-pkg">
+      <div class="dl-pkg-ico"><span class="ms" aria-hidden="true">system_update</span></div>
+      <div>
+        <h3>epixos-base 0.1~2026.11</h3>
+        <p>Yardımcı komutlar, <code>vga=791</code> GRUB ayarı, <code>nouveau</code> kara listesi,
+           arka ışık servisi. 11 KB — bağımlılık yok.</p>
+      </div>
+      <a class="dl-btn dl-btn--ghost" href="/indir/epixos-base_0.1.202611_all.deb" download>
+        <span class="ms" aria-hidden="true">download</span>Paketi indir
+      </a>
+      <pre class="dl-pkg-code"><code>sudo dpkg -i epixos-base_0.1.202611_all.deb
+sudo apt -f install     # eksik bağımlılık varsa</code></pre>
+    </div>
+
+    <div class="dl-note">
+      <span class="ms" aria-hidden="true">warning</span>
+      <div>
+        <h4>Paket neyi değiştirir</h4>
+        <p><code>postinst</code> çalışırken <code>/etc/default/grub</code> dosyasına <code>vga=791</code>
+           ekler, <code>epix-backlight.service</code>'i etkinleştirir ve GRUB menüsünü yeniler.
+           Değiştirdiği yapılandırma dosyaları <code>conffiles</code> içinde —
+           kendi düzenlemelerin korunur, fark sorulur.</p>
+        <p>Kaldırmak için: <code>sudo apt remove epixos-base</code></p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ============ USB'YE YAZMA ============ -->
 <section class="os-section os-alt" id="usb">
   <div class="wrap">
