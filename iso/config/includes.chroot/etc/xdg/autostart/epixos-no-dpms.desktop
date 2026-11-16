@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=epixOS ekran uyanık kalsın
+Comment=DPMS ve ekran kararmasını kapatır (eski panellerde ekran geri gelmeyebiliyor)
+Exec=sh -c "xset s off; xset s noblank; xset -dpms; xset dpms force on || true"
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+OnlyShowIn=GNOME;
