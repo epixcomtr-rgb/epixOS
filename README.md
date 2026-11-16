@@ -130,6 +130,28 @@ epixOS bunu GRUB'da ve `/etc/default/grub.d/99-epixos.cfg` içinde gönderir.
 `scripts/verify-iso.sh` bu parametrenin ISO'da olduğunu denetler.
 Ayrıntılı kanıt zinciri: [docs/05-KARARLAR.md](docs/05-KARARLAR.md).
 
+## Mevcut kurulumu güncelleme
+
+ISO'yu yeniden kurmadan düzeltmeleri almak için `epixos-base` paketi:
+
+```bash
+# ISO'yu yeniden derledikten sonra paketi üret
+sudo ./scripts/make-deb.sh
+# -> dist/epixos-base_<sürüm>_all.deb
+
+# hedef makinede
+sudo dpkg -i epixos-base_*.deb
+sudo apt -f install     # eksik bağımlılık varsa
+```
+
+Paket şunları taşır: yardımcı komutlar (`epix`, `epix-ssh`, `epix-hw`,
+`epix-doctor`, `epix-ai`, …), `vga=791` GRUB ayarı, `nouveau` kara listesi ve
+`epix-backlight.service`. `postinst` çalışırken GRUB ve initramfs'i yeniler.
+
+> **Dikkat:** `postinst` içindeki `update-initramfs` çağrısı çekirdek sürümünü
+> açıkça belirtir. Parametresiz çağrı, `/boot/vmlinuz-epixos` dosyasını gerçek
+> çekirdek sanıp bozuk initramfs üretir ve sistemi açılmaz hale getirir.
+
 ## Katkı
 
 ```bash

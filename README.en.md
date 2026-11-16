@@ -132,6 +132,28 @@ epixOS passes it from GRUB and `/etc/default/grub.d/99-epixos.cfg`.
 `scripts/verify-iso.sh` asserts the parameter is present in the ISO.
 Full evidence chain: [docs/05-KARARLAR.md](docs/05-KARARLAR.md).
 
+## Updating an existing installation
+
+To receive fixes without reinstalling from the ISO, use the `epixos-base` package:
+
+```bash
+# after rebuilding the ISO, produce the package
+sudo ./scripts/make-deb.sh
+# -> dist/epixos-base_<version>_all.deb
+
+# on the target machine
+sudo dpkg -i epixos-base_*.deb
+sudo apt -f install     # only if dependencies are missing
+```
+
+The package ships the helper commands (`epix`, `epix-ssh`, `epix-hw`,
+`epix-doctor`, `epix-ai`, …), the `vga=791` GRUB setting, the `nouveau`
+blacklist and `epix-backlight.service`. `postinst` refreshes GRUB and initramfs.
+
+> **Caution:** the `update-initramfs` call in `postinst` names the kernel
+> version explicitly. Without `-k`, it mistakes `/boot/vmlinuz-epixos` for a real
+> kernel, writes a broken initramfs and leaves the system unbootable.
+
 ## Contributing
 
 ```bash
