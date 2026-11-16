@@ -430,7 +430,10 @@ check_layer "wifi firmware"      "ls /usr/lib/firmware/iwlwifi-* /usr/lib/firmwa
 check_layer "firmware dosya sayısı (>1000)" "test \"$(find /usr/lib/firmware -type f 2>/dev/null | wc -l)\" -gt 1000"
 check_layer "node24 (~200MB)"    "test -x /opt/node24/bin/node"
 check_layer "dsh kurulu"         "test -x /opt/node24/lib/node_modules/@deepseek-ai/dsh/lib/bin.js || command -v dsh >/dev/null"
-check_layer "anahtar deposu izin" "test \"$(stat -c %a /opt/epixos/dsh 2>/dev/null)\". = \"700.\" -o ! -e /opt/epixos/dsh"
+# NOT: $(...) HOST kabuğunda açılır, chroot'ta değil. Bu yüzden iç içe
+# komutlar \$ ile kaçırılmalı; aksi halde kontrol chroot dışında hesaplanır
+# ve her zaman başarısız olur (yaşandı: anahtar deposu izin yanlış uyarısı).
+check_layer "anahtar deposu izin" "test \"\$(stat -c %a /opt/epixos/dsh 2>/dev/null)\" = 700 -o ! -e /opt/epixos/dsh"
 check_layer "AI anahtarı gömülü DEĞİL" "! grep -qsE 'sk-[A-Za-z0-9]{20,}' /etc/epixos/ai.env /opt/epixos/dsh/.credentials.yaml 2>/dev/null"
 check_layer "casper yapılandırma" "test -f /etc/casper.conf"
 check_layer "udev zaman aşımı"   "grep -qs event_timeout /etc/udev/udev.conf.d/50-epixos.conf"

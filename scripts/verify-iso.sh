@@ -24,12 +24,32 @@ xorriso -indev "$ISO" -report_el_torito as_mkisofs 2>/dev/null | head -15 || tru
 
 echo
 echo "==> squashfs kök dosya sistemi"
+# NOT: epixOS kendi derleme hattını kullanıyor (casper tabanlı), bu yüzden yol
+# /casper/ altında. Pardus/Debian live /live/ kullanır — ikisini de dene.
 command -v unsquashfs >/dev/null && {
   tmp="$(mktemp -d)"
-  xorriso -osirrox on -indev "$ISO" -extract /live/filesystem.squashfs "$tmp/fs.squashfs" 2>/dev/null || true
-  if [[ -f "$tmp/fs.squashfs" ]]; then
-    unsquashfs -l "$tmp/fs.squashfs" >/dev/null 2>&1 && echo "    squashfs ok"
-    unsquashfs -cat "$tmp/fs.squashfs" etc/os-release 2>/dev/null | head -5
+  sq=""
+  for yol in /casper/filesystem.squashfs /live/filesystem.squashfs; do
+    xorriso -osirrox on -indev "$ISO" -extract "$yol" "$tmp/fs.squashfs" 2>/dev/null || true
+    if [[ -s "$tmp/fs.squashfs" ]]; then sq="$yol"; break; fi
+  done
+  if [[ -s "$tmp/fs.squashfs" ]]; then
+    echo "    yol: $sq ($(du -h "$tmp/fs.squashfs" | cut -f1))"
+    if unsquashfs -l "$tmp/fs.squashfs" >/dev/null 2>&1; then echo "    ✓ squashfs ok"; else echo "    ✗ squashfs BOZUK" >&2; fi
+    unsquashfs -cat "$tmp/fs.squashfs" etc/os-release 2>/dev/null | head -4 | sed 's/^/    /'
+    # kritik dosyalar gerçekten içinde mi
+    for f in etc/default/grub.d/99-epixos.cfg \
+             etc/modprobe.d/zz-epixos-gpu-blacklist.conf \
+             etc/systemd/system/epix-backlight.service \
+             usr/lib/xorg/Xorg; do
+      if unsquashfs -l "$tmp/fs.squashfs" "$f" 2>/dev/null | grep -q "$f"; then
+        echo "    ✓ $f"
+      else
+        echo "    ✗ $f EKSİK" >&2
+      fi
+    done
+  else
+    echo "    ✗ squashfs bulunamadı (/casper veya /live)" >&2
   fi
   rm -rf "$tmp"
 }
