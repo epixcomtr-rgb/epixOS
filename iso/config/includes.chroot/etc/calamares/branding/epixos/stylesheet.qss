@@ -1,0 +1,278 @@
+/* epixOS — Calamares stil dosyası.
+ *
+ * Renkler gerçek logodan örneklendi: lime #e2ff5e, navy #16404b, deep #0e2a31
+ *
+ * TASARIM KARARI — açık içerik + koyu yan panel:
+ *   İlk denemede tüm pencere koyu yapıldı ve global olarak açık renk metin
+ *   tanımlandı. Sonuç: Calamares'in kendi çizmediği widget'larda metin
+ *   beyaz-üstüne-beyaz oldu, karşılama ekranı okunamaz hale geldi (ekran
+ *   görüntüsüyle doğrulandı). Calamares açık tema varsayımıyla yazılmış;
+ *   içerik panelini açık bırakıp markayı yan panelde ve vurgu renklerinde
+ *   taşımak hem okunaklı hem güvenli.
+ *
+ * KURAL: Arka planı BİZ boyamadığımız widget'a metin rengi verme.
+ *   Sadece arka planını açıkça belirlediğimiz öğelerde metin rengi yazılır.
+ */
+
+/* ---------------------------------------------------------------- yan panel
+ *
+ * GERÇEK nesne adları Calamares kaynağından alındı (libcalamaresui'deki
+ * varsayılan stylesheet.qss belgeleri): #mainApp, #sidebarApp, #logoApp.
+ *
+ * KRİTİK: yan paneldeki adım LİSTESİ özel C++ delegate ile çizilir ve
+ * QSS ile biçimlendirilemez. Liste renkleri branding.desc içindeki
+ * style: SidebarBackground / SidebarText / SidebarTextCurrent /
+ * SidebarBackgroundCurrent anahtarlarından gelir — oradan ayarlanır.
+ * Burada sadece kapsayıcı arka planı boyanır; boyanmazsa liste bittikten
+ * sonraki alan QMainWindow beyazı olarak kalır (ekran görüntüsüyle
+ * doğrulandı).
+ */
+#mainApp {
+    background-color: #f4f7f8;
+}
+
+#sidebarApp, #logoApp {
+    background-color: #0e2a31;
+}
+
+/* Sidebar içindeki kalan boş alan ayrı bir QWidget (ekran görüntüsünde
+ * beyaz blok olarak görünüyordu). Kapsayıcıya bağlı tüm QWidget'ları
+ * koyuya çekiyoruz — liste öğeleri kendi delegate'iyle çizildiği için
+ * etkilenmez, arka planları branding.desc'ten gelir. */
+#sidebarApp QWidget, #logoApp QWidget {
+    background-color: #0e2a31;
+}
+
+#sidebarApp QPushButton, #aboutButton {
+    background-color: #16404b;
+    color: #d7e7e9;
+    border: 1px solid #235561;
+    border-radius: 5px;
+    padding: 5px 10px;
+}
+
+#sidebarApp QPushButton:hover, #aboutButton:hover {
+    background-color: #1d5563;
+    border-color: #e2ff5e;
+    color: #e2ff5e;
+}
+
+/* ---------------------------------------------------------------- butonlar */
+QPushButton {
+    background-color: #ffffff;
+    color: #16404b;
+    border: 1px solid #b9cbcf;
+    border-radius: 6px;
+    padding: 7px 18px;
+    min-height: 20px;
+}
+
+QPushButton:hover {
+    background-color: #f1f7f8;
+    border-color: #16404b;
+}
+
+QPushButton:pressed {
+    background-color: #e3edef;
+}
+
+QPushButton:disabled {
+    background-color: #f4f6f7;
+    color: #9aacb0;
+    border-color: #dde5e7;
+}
+
+/* Birincil eylem (Sonraki / Kur) — marka limi */
+QPushButton#nextButton, QPushButton[class="primary"] {
+    background-color: #e2ff5e;
+    color: #16404b;
+    font-weight: 600;
+    border: 1px solid #c9e64a;
+}
+
+QPushButton#nextButton:hover {
+    background-color: #d5f34d;
+}
+
+QPushButton#nextButton:pressed {
+    background-color: #c4e33c;
+}
+
+QPushButton#nextButton:disabled {
+    background-color: #eef6cf;
+    color: #9aa88a;
+    border-color: #dde8b8;
+}
+
+/* ---------------------------------------------------------------- girdiler */
+QLineEdit, QTextEdit, QPlainTextEdit, QSpinBox, QComboBox {
+    background-color: #ffffff;
+    color: #16404b;
+    border: 1px solid #b9cbcf;
+    border-radius: 5px;
+    padding: 5px 8px;
+    selection-background-color: #e2ff5e;
+    selection-color: #16404b;
+}
+
+QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus,
+QSpinBox:focus, QComboBox:focus {
+    border: 2px solid #16404b;
+    padding: 4px 7px;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #ffffff;
+    color: #16404b;
+    border: 1px solid #b9cbcf;
+    selection-background-color: #e2ff5e;
+    selection-color: #16404b;
+}
+
+/* ---------------------------------------------------------------- listeler */
+QListView, QTreeView, QTableView {
+    background-color: #ffffff;
+    color: #16404b;
+    border: 1px solid #cfdde0;
+    border-radius: 5px;
+    alternate-background-color: #f6fafb;
+}
+
+QListView::item:selected, QTreeView::item:selected,
+QTableView::item:selected {
+    background-color: #e2ff5e;
+    color: #16404b;
+}
+
+QHeaderView::section {
+    background-color: #eef4f5;
+    color: #16404b;
+    font-weight: 600;
+    border: none;
+    border-bottom: 1px solid #cfdde0;
+    padding: 6px;
+}
+
+/* ---------------------------------------------------------------- onay kutuları */
+QCheckBox, QRadioButton {
+    spacing: 7px;
+}
+
+QCheckBox::indicator, QRadioButton::indicator {
+    width: 16px;
+    height: 16px;
+}
+
+QCheckBox::indicator:unchecked, QRadioButton::indicator:unchecked {
+    background-color: #ffffff;
+    border: 1px solid #8fa6ab;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #16404b;
+    border: 1px solid #16404b;
+}
+
+QRadioButton::indicator:checked {
+    background-color: #16404b;
+    border: 4px solid #ffffff;
+}
+
+/* ---------------------------------------------------------------- ilerleme */
+QProgressBar {
+    background-color: #eef4f5;
+    border: 1px solid #cfdde0;
+    border-radius: 4px;
+    text-align: center;
+    color: #16404b;
+    min-height: 18px;
+}
+
+QProgressBar::chunk {
+    background-color: #e2ff5e;
+    border-radius: 3px;
+}
+
+/* ---------------------------------------------------------------- kaydırma */
+QScrollBar:vertical {
+    background: transparent;
+    width: 11px;
+    margin: 0;
+}
+
+QScrollBar::handle:vertical {
+    background: #b9cbcf;
+    border-radius: 5px;
+    min-height: 26px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #8fa6ab;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0;
+}
+
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background: none;
+}
+
+QScrollBar:horizontal {
+    background: transparent;
+    height: 11px;
+}
+
+QScrollBar::handle:horizontal {
+    background: #b9cbcf;
+    border-radius: 5px;
+    min-width: 26px;
+}
+
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    width: 0;
+}
+
+/* ---------------------------------------------------------------- gruplar */
+QGroupBox {
+    border: 1px solid #cfdde0;
+    border-radius: 5px;
+    margin-top: 9px;
+    padding-top: 9px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 9px;
+    padding: 0 4px;
+    color: #16404b;
+    font-weight: 600;
+}
+
+QTabWidget::pane {
+    border: 1px solid #cfdde0;
+    border-radius: 5px;
+}
+
+QTabBar::tab {
+    background: #eef4f5;
+    color: #16404b;
+    padding: 6px 14px;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+}
+
+QTabBar::tab:selected {
+    background: #ffffff;
+    color: #16404b;
+    font-weight: 600;
+    border-bottom: 2px solid #e2ff5e;
+}
+
+/* ---------------------------------------------------------------- ipuçları */
+QToolTip {
+    background-color: #16404b;
+    color: #e8f1f2;
+    border: 1px solid #e2ff5e;
+    padding: 4px 6px;
+}

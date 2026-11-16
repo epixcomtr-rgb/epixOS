@@ -1,0 +1,44 @@
+---
+# epixOS — Calamares marka tanımı.
+#
+# Renkler gerçek logodan örneklendi (PIL ile sayıldı), tahmin değil:
+#   lime #e2ff5e (baskın), navy #16404b, deep #0e2a31
+componentName: epixos
+
+# Pencere: sabit boyut, ortada. Tam ekran yapmıyoruz — 1024x768 VESA
+# çerçevesinde (vga=791) kenarlar kırpılmasın.
+windowExpanding: normal
+windowSize: 1024px, 720px
+windowPlacement: center
+# Acikca yazilmazsa Calamares uyari basiyor ve varsayilani seciyor.
+# widget = klasik Calamares duzeni (yonerge cubugu altta).
+sidebar: widget
+navigation: widget
+
+strings:
+  productName:         epixOS
+  shortProductName:    epixOS
+  version:             0.1 (2026.11)
+  shortVersion:        0.1
+  versionedName:       epixOS 0.1 (2026.11) — kavak
+  shortVersionedName:  epixOS 0.1
+  bootloaderEntryName: epixOS
+  productUrl:          https://os.epix.tr/
+  supportUrl:          https://os.epix.tr/
+  knownIssuesUrl:      https://os.epix.tr/surum-notlari/
+  releaseNotesUrl:     https://os.epix.tr/surum-notlari/
+  donateUrl:           https://os.epix.tr/
+
+images:
+  productLogo:    "logo.png"
+  productIcon:    "icon.png"
+  productWelcome: "welcome.png"
+
+slideshow:    "show.qml"
+slideshowAPI: 1
+
+style:
+  SidebarBackground:         "#0e2a31"
+  SidebarText:               "#a8bfc4"
+  SidebarTextCurrent:        "#e2ff5e"
+  SidebarBackgroundCurrent:  "#16404b"

@@ -1,0 +1,171 @@
+#!/bin/sh
+# epixOS — Calamares kurulum asistanı hazırlığı
+#
+# Bu hook 0100 (marka) ve 0200 (hafiflik) hook'larından SONRA çalışır:
+#   - 0100 /etc/default/grub.d/99-epixos.cfg dosyasını yazar (vga=791)
+#   - 0200 servisleri kapatır, apt-mark işaretlerini koyar
+# Bunların üstüne kurulum asistanını ekliyoruz.
+#
+# Sıra önemli: paketler build-iso.sh adım 3'te kurulur, hook'lar adım 4'te
+# çalışır; yani calamares ve grub-*-bin burada HAZIRDIR.
+set -e
+
+echo "P: Calamares kurulum asistanı yapılandırılıyor"
+
+CAL=/etc/calamares
+BRAND=$CAL/branding/epixos
+
+# ---------------------------------------------------------------- doğrulama
+# Sessizce bozuk bir ISO üretmemek için ikili dosyaları burada denetle.
+MISSING=""
+for b in \
+  /usr/bin/calamares \
+  /usr/sbin/grub-install \
+  /usr/sbin/grub-mkconfig \
+  /sbin/dosfsck \
+  /usr/bin/mksquashfs \
+  /usr/bin/unsquashfs
+do
+  [ -x "$b" ] || MISSING="$MISSING $b"
+done
+if [ -n "$MISSING" ]; then
+  echo "  ✗ EKSİK: $MISSING"
+  echo "  → paket listesi eksik; kurulum asistanı çalışmaz"
+  exit 1
+fi
+echo "  ✓ calamares + grub-install + squashfs araçları yerinde"
+
+# GRUB modül dizinleri: biri yoksa o önyükleme türü kurulamaz
+if [ ! -d /usr/lib/grub/i386-pc ]; then
+  echo "  ✗ /usr/lib/grub/i386-pc yok (grub-pc-bin) — BIOS kurulumu başarısız olur"
+  exit 1
+fi
+if [ ! -d /usr/lib/grub/x86_64-efi ]; then
+  echo "  ✗ /usr/lib/grub/x86_64-efi yok (grub-efi-amd64-bin) — UEFI kurulumu başarısız olur"
+  exit 1
+fi
+echo "  ✓ GRUB BIOS + UEFI modülleri yerinde"
+
+# ---------------------------------------------------------------- /etc/default/grub
+# Calamares'in grubcfg modülü bu dosyayı okur. Canlı imajda YOKTU
+# (B560'ta elle yazılmıştı). Olmadan grub-mkconfig uyarı üretir ve
+# GRUB_DISTRIBUTOR düşer.
+if [ ! -f /etc/default/grub ]; then
+  if [ -f /usr/share/grub/default/grub ]; then
+    cp /usr/share/grub/default/grub /etc/default/grub
+  else
+    cat > /etc/default/grub <<'EOF'
+GRUB_DEFAULT=0
+GRUB_TIMEOUT=10
+GRUB_TIMEOUT_STYLE=menu
+GRUB_DISTRIBUTOR="epixOS"
+GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"
+GRUB_CMDLINE_LINUX=""
+EOF
+  fi
+  echo "  ✓ /etc/default/grub oluşturuldu"
+else
+  echo "  ✓ /etc/default/grub zaten var"
+fi
+
+# vga=791 drop-in'inin yerinde olduğunu doğrula (0100 hook yazar)
+if grep -qs 'vga=791' /etc/default/grub.d/99-epixos.cfg; then
+  echo "  ✓ 99-epixos.cfg: vga=791"
+else
+  echo "  ! 99-epixos.cfg'de vga=791 yok — geri yazılıyor"
+  mkdir -p /etc/default/grub.d
+  cat >> /etc/default/grub.d/99-epixos.cfg <<'EOF'
+GRUB_CMDLINE_LINUX_DEFAULT="quiet splash vga=791 console=tty0"
+EOF
+fi
+
+# ---------------------------------------------------------------- yapılandırma sahipliği
+# includes.chroot'tan gelen dosyalar zaten yerinde; izinleri sıkılaştır.
+chmod 644 $CAL/settings.conf 2>/dev/null || true
+find $CAL/modules -name '*.conf' -exec chmod 644 {} \; 2>/dev/null || true
+find $BRAND -type f -exec chmod 644 {} \; 2>/dev/null || true
+echo "  ✓ yapılandırma izinleri"
+
+# ---------------------------------------------------------------- başlatıcı
+# Calamares root ister; sudo -E kullanıyoruz ki
+# DISPLAY/XAUTHORITY korunsun (pkexec polkit sorusu çıkarıyordu).
+mkdir -p /usr/local/bin
+cat > /usr/local/bin/epix-install <<'EOF'
+#!/bin/sh
+# epixOS kurulum asistanını başlat (canlı oturumdan).
+#
+# NEDEN sudo -E, pkexec DEĞİL:
+#   İlk sürümde `pkexec` kullanıldı ve canlı oturumda "Kimlik Doğrulaması
+#   Gerekli" penceresi çıktı (ekran görüntüsüyle doğrulandı). Sebep:
+#   canlı kullanıcı `live` şifresiz SUDO yetkisine sahip
+#   (/etc/sudoers.d/live-epixos -> NOPASSWD:ALL) ama pkexec polkit'ten
+#   geçer ve polkit'in bu kullanıcı için kuralı yoktur. Ayrıca canlı
+#   hesabın parolası boştur, parola sorulamaz.
+#
+#   `sudo -E` ortamı korur: DISPLAY ve XAUTHORITY olmadan Qt
+#   "could not connect to display" verir. -E olmadan Calamares açılmaz.
+#
+# Kurulu sistemde bu betik çağrılmaz; orada normal kullanıcı sudo ile
+# kendi parolasını girer.
+if [ "$(id -u)" -eq 0 ]; then
+  exec calamares -D6 "$@"
+fi
+exec sudo -E calamares -D6 "$@"
+EOF
+chmod 755 /usr/local/bin/epix-install
+
+# ---------------------------------------------------------------- masaüstü kısayolu
+mkdir -p /usr/share/applications
+cat > /usr/share/applications/epix-install.desktop <<'EOF'
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=epixOS Kur
+Name[en]=Install epixOS
+GenericName=Sistem Yükleyici
+GenericName[en]=System Installer
+Comment=epixOS'u bu bilgisayara kur
+Comment[en]=Install epixOS on this computer
+Exec=sudo -E /usr/local/bin/epix-install
+Icon=/etc/calamares/branding/epixos/icon.png
+Terminal=false
+StartupNotify=true
+Categories=System;
+Keywords=install;kurulum;epixos;
+EOF
+chmod 644 /usr/share/applications/epix-install.desktop
+# GNOME masaüstünde de görünsün (canlı oturumda simge olarak)
+mkdir -p /etc/skel/Desktop /home/live/Desktop 2>/dev/null || true
+for d in /etc/skel/Desktop /home/live/Desktop; do
+  [ -d "$d" ] || continue
+  cp -f /usr/share/applications/epix-install.desktop "$d/epix-install.desktop"
+  chmod 755 "$d/epix-install.desktop"
+done
+if id live >/dev/null 2>&1; then
+  chown -R live:live /home/live/Desktop 2>/dev/null || true
+  # GNOME "güvenilmeyen başlatıcı" uyarısını kapat
+  su -s /bin/sh live -c \
+    "gio set /home/live/Desktop/epix-install.desktop metadata::trusted true" \
+    >/dev/null 2>&1 || true
+  su -s /bin/sh live -c \
+    "dbus-launch gsettings set org.gnome.shell remembered-applications 2>/dev/null" \
+    >/dev/null 2>&1 || true
+fi
+echo "  ✓ epix-install + masaüstü kısayolu"
+
+# ---------------------------------------------------------------- apt-mark
+# KRİTİK: `apt autoremove` bu paketleri kaldırmaya çalışabilir
+# (--no-install-recommends ile kuruldukları için). Kurulum aracı
+# kaldırılırsa kullanıcı bir daha kuramaz — elle işaretle.
+for p in calamares grub-pc-bin grub-efi-amd64-bin grub2-common \
+         squashfs-tools dosfstools mtools efibootmgr \
+         cryptsetup qml-module-qtquick2 qml-module-qtquick-window2; do
+  apt-mark manual "$p" >/dev/null 2>&1 || true
+done
+echo "  ✓ apt-mark manual: kurulum araçları korundu"
+
+# ---------------------------------------------------------------- özet
+n_img=$(find $BRAND -name '*.png' | wc -l)
+n_mod=$(ls $CAL/modules/*.conf 2>/dev/null | wc -l)
+echo "  ✓ marka: $n_img görsel, $n_mod modül dosyası"
+echo "P: Calamares hazır — 'epixOS Kur' masaüstünde"

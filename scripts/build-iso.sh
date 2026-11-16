@@ -615,11 +615,17 @@ mksq_monitor() {
 mksq_monitor "$MKSQLOG" &
 MON_PID=$!
 
+# /boot squashfs'e DAHİL EDİLMELİ.
+# Calamares kurulumundan sonra hedef sistemin /boot/vmlinuz-* ve
+# /boot/initrd.img-* dosyalarına ihtiyacı var: `initramfs` modülü
+# update-initramfs çağırır, `bootloader` modülü grub-mkconfig ile menü
+# üretir. /boot dışlanırsa kurulum "no kernel found" ile durur.
+# Maliyet: vmlinuz 15 MB + initrd 70 MB (ISO bütçesi 2.3 GB, rahat).
 set +e
 mksquashfs "$CHROOT" "$ISOTREE/casper/filesystem.squashfs" \
       "${SQ_OPTS[@]}" -noappend -percentage \
       -no-exports \
-      -e boot -e .bootstrap-done \
+      -e .bootstrap-done \
       -e 'dev/*' -e 'proc/*' -e 'sys/*' -e 'run/*' \
       > "$MKSQLOG" 2>&1
 MKSQ_RC=$?

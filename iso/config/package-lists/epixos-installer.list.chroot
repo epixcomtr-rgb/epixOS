@@ -1,0 +1,31 @@
+# epixOS — kurulum asistanı (Calamares)
+#
+# NEDEN --no-install-recommends İLE BİRLİKTE EKSİKSİZ LİSTE:
+#   build-iso.sh APT::Install-Recommends "false" kullanıyor. Calamares'in
+#   hard bağımlılıkları (libkf5*, libqt5*, libkpmcore) otomatik gelir ama
+#   şunlar GELMEZ ve elle listelenmeleri gerekir:
+#     - grub-pc-bin          BIOS'a grub-install + i386-pc modülleri
+#     - grub-efi-amd64-bin   UEFI'ye grub-install + x86_64-efi modülleri
+#     - grub2-common         /usr/sbin/grub-install (hedefte YOKTU)
+#     - dosfstools/mtools    EFI bölümünü biçimlendirme (fat32)
+#     - squashfs-tools       unpackfs modülü
+#     - cryptsetup           LUKS desteği (partition modülü çağırır)
+#     - qml-module-qtquick*  slayt gösterisi (show.qml)
+#     - keyutils             users modülünün şifre işlemleri
+#     - efibootmgr           UEFI önyükleme girdisi
+calamares
+grub2-common
+grub-pc-bin
+grub-efi-amd64-bin
+grub-efi-amd64-signed
+shim-signed
+dosfstools
+mtools
+squashfs-tools
+cryptsetup
+cryptsetup-initramfs
+keyutils
+efibootmgr
+qml-module-qtquick2
+qml-module-qtquick-window2
+kpackagetool5
