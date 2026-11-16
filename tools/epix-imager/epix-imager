@@ -548,6 +548,20 @@ def flash(iso, dev, settings, progress=None, log=None):
 
 # ---------------------------------------------------------------- GUI
 
+# epixOS marka renkleri (logodan): lime #e2ff5e, navy #16404b
+APP_CSS = """
+button.epix-primary {
+  background-image: none;
+  background-color: #e2ff5e;
+  color: #16404b;
+  font-weight: 600;
+}
+button.epix-primary:hover { background-color: #cfe83f; }
+button.epix-primary:active { background-color: #b8d132; }
+button.epix-primary:disabled { background-color: #4a5c2a; color: #9aa88a; }
+"""
+
+
 def run_gui():
     import gi
     gi.require_version("Gtk", "4.0")
@@ -557,11 +571,30 @@ def run_gui():
     class Window(Adw.ApplicationWindow):
         def __init__(self, app):
             super().__init__(application=app, title=APP_NAME)
-            self.set_default_size(720, 760)
+            self.set_default_size(760, 820)
+            self.set_size_request(520, 560)
             self.settings = {"ssh": True, "wifi": {}, "lang": "tr_TR.UTF-8",
                              "timezone": "Europe/Istanbul", "hostname": "epixos"}
             self.disks = []
             self.build()
+            # marka CSS'i — pencere görünür olduktan sonra yükle
+            self.connect("map", self._load_css)
+
+        def _load_css(self, *_):
+            if getattr(self, "_css_loaded", False):
+                return
+            self._css_loaded = True
+            try:
+                prov = Gtk.CssProvider()
+                prov.load_from_data(APP_CSS.encode())
+                # USER seviyesi: tema kurallarını geçer
+                Gtk.StyleContext.add_provider_for_display(
+                    self.get_display(), prov,
+                    Gtk.STYLE_PROVIDER_PRIORITY_USER)
+            except Exception as e:
+                # sessiz geçme: log'a yaz (teşhis için)
+                import sys
+                print(f"CSS yüklenemedi: {e}", file=sys.stderr)
 
         # ---- arayüz
         def build(self):
@@ -573,6 +606,7 @@ def run_gui():
             box.append(hb)
 
             scroll = Gtk.ScrolledWindow(vexpand=True)
+            scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
             box.append(scroll)
             page = Adw.PreferencesPage()
             scroll.set_child(page)
@@ -644,12 +678,13 @@ def run_gui():
             self.lbl_log.add_css_class("dim-label")
             g_run.add(self.lbl_log)
 
+            # "Yaz" dugmesi header bar'a (adwaita deseni)
             self.btn_flash = Gtk.Button(label="USB'ye yaz")
-            self.btn_flash.add_css_class("suggested-action")
-            self.btn_flash.add_css_class("pill")
-            self.btn_flash.set_margin_top(12)
+            # suggested-action kullanmıyoruz: bazı temalarda kırmızıya
+            # (yıkıcı eylem) düşüyor. Marka rengiyle sabitliyoruz.
+            self.btn_flash.add_css_class("epix-primary")
+            hb.pack_end(self.btn_flash)
             self.btn_flash.connect("clicked", self.on_flash)
-            box.append(self.btn_flash)
 
         # ---- olaylar
         def on_pick_iso(self, *_):
