@@ -40,7 +40,7 @@ mkdir -p "$BUILD/etc/dconf/db/local.d"
 inf "2/5 dosyalar chroot'tan kopyalanıyor"
 
 # ---- yardımcı araçlar (kullanıcı komutları)
-for f in epix epix-ai epix-ai-gui epix-ssh epix-hw epix-doctor epix-rescue epix-boot-log epix-memory-check; do
+for f in epix epix-ai epix-ai-gui epix-ssh epix-hw epix-doctor epix-rescue epix-boot-log epix-memory-check epix-update; do
   src="$CHROOT/usr/local/bin/$f"
   if [[ -f "$src" ]]; then
     install -m 755 "$src" "$BUILD/usr/local/bin/$f"

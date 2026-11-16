@@ -236,23 +236,56 @@ $ cat /sys/kernel/debug/dri/0/i915_display_info
   <!-- ---------- YÜKSELTME ---------- -->
   <div class="rel-up" id="yukseltme">
     <h2>Kurulu sistemi yükselt</h2>
-    <p>Zaten epixOS 0.1 kuruluysa ISO'yu yeniden yazman gerekmez.
-       <code>epixos-base</code> paketi düzeltmeleri taşır.</p>
+    <p>Zaten epixOS 0.1 kuruluysa ISO'yu yeniden yazman gerekmez. İki yol var:
+       imzalı APT deposu (önerilen) veya tek seferlik paket.</p>
+
+    <h3 style="margin:22px 0 10px;font:700 1.02rem/1.3 var(--head);color:var(--navy)">Yol 1 — imzalı APT deposu</h3>
+    <p style="margin-top:0">Bir kez kurulur, sonrasında <code>sudo epix-update</code> yeter.
+       Depo GPG ile imzalıdır: paketin gerçekten epixOS'tan geldiği kriptografik
+       olarak doğrulanır.</p>
+    <pre><code># imza anahtarı
+curl -fsSL https://os.epix.tr/indir/apt/epixos-archive-keyring.gpg \
+  | sudo tee /usr/share/keyrings/epixos-archive-keyring.gpg &gt;/dev/null
+
+# depo tanımı
+curl -fsSL https://os.epix.tr/indir/apt/epixos.list \
+  | sudo tee /etc/apt/sources.list.d/epixos.list &gt;/dev/null
+
+# güncelle
+sudo apt update
+sudo epix-update</code></pre>
+    <p><b>Anahtar parmak izi:</b>
+       <code>989C BF3B AAC5 A146 B5E7 3B24 1412 B74F C342 DE15</code></p>
+
+    <h3 style="margin:26px 0 10px;font:700 1.02rem/1.3 var(--head);color:var(--navy)">Yol 2 — tek seferlik paket</h3>
     <pre><code>curl -LO https://os.epix.tr/indir/epixos-base_0.1.202611_all.deb
 sha256sum epixos-base_0.1.202611_all.deb
 # 711b8631be7f6a9bd6e385bb0c51da65b57acf803d868446dca5ccc2a4ed59db
 
 sudo dpkg -i epixos-base_0.1.202611_all.deb
 sudo apt -f install      # eksik bağımlılık varsa</code></pre>
+
+    <div class="rel-warn">
+      <span class="ms" aria-hidden="true">dangerous</span>
+      <div>
+        <p><b><code>apt autoremove</code> çalıştırma.</b>
+           Canlı ISO <code>--no-install-recommends</code> ile kurulduğu için apt,
+           GNOME masaüstü parçalarını «artık gerekli değil» sayıyor
+           (<code>grilo-plugins gvfs-fuse libgtksourceview-4-0 tracker yelp</code> …).
+           <code>epix-update</code> bunu yapmaz; 12 masaüstü paketi korumaya alındı.</p>
+      </div>
+    </div>
+
     <div class="rel-warn">
       <span class="ms" aria-hidden="true">warning</span>
       <div>
         <p><b>Yeniden başlatmadan önce</b> <code>vga=791</code>'in yerinde
            olduğunu doğrula:</p>
-        <p style="margin-top:8px"><code>grep vga=791 /boot/grub/grub.cfg</code></p>
+        <p style="margin-top:8px"><code>sudo epix-update check</code></p>
         <p style="margin-top:8px">Parametre yoksa eski Intel panellerinde ekran
            siyah kalır. Ayrıca initramfs boyutu ~69 MB olmalı;
-           <b>40 MB'ın altındaysa bozuktur</b> ve sistem açılmaz.</p>
+           <b>40 MB'ın altındaysa bozuktur</b> ve sistem açılmaz.
+           Onarım: <code>sudo epix-update fix-grub</code></p>
       </div>
     </div>
   </div>

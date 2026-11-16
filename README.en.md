@@ -38,7 +38,7 @@ A lightweight, fast Linux distribution managed by AI. GNOME desktop, smooth on
 | Desktop | GNOME (`gnome-core`) |
 | Browser | GNOME Web (epiphany) — no snap |
 | Boot | Legacy BIOS (MBR) + UEFI |
-| ISO | 1.8 GB · sha256 `813442bb8d81f7d75a0ae3a7c7be7511b9524cd4e5f39eba5921f14418662f46` |
+| ISO | 1.8 GB · sha256 `c35f0a50fa101bee1682cc2eaaecf7c259ca50c8240b650ec97a98bd3efa26be` |
 
 ## Install
 
@@ -49,7 +49,7 @@ Three steps. Full guide: **[os.epix.tr/indir](https://os.epix.tr/indir/)**
 ```bash
 curl -LO https://os.epix.tr/indir/epixOS-0.1-2026.11-amd64.iso
 sha256sum epixOS-0.1-2026.11-amd64.iso
-# 813442bb8d81f7d75a0ae3a7c7be7511b9524cd4e5f39eba5921f14418662f46
+# c35f0a50fa101bee1682cc2eaaecf7c259ca50c8240b650ec97a98bd3efa26be
 ```
 
 Also available from GitHub Releases:
