@@ -1,31 +1,113 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <!--
+    epixOS — varsayılan duvar kağıdı
+    Palet doğrudan kurumsal Epix logosundan alınmıştır:
+      lime #e2ff5e · navy #16404b · deep #0e2a31
+    Motif: logodaki "x" harfinin iki çapraz darbesi (crossing beams).
+  -->
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#0b1218"/>
-      <stop offset="0.55" stop-color="#10222b"/>
-      <stop offset="1" stop-color="#0d1a22"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#16404b"/>
+      <stop offset="0.38" stop-color="#123540"/>
+      <stop offset="1" stop-color="#0a1c22"/>
     </linearGradient>
-    <radialGradient id="glow" cx="0.72" cy="0.28" r="0.55">
-      <stop offset="0" stop-color="#22d3ee" stop-opacity="0.32"/>
-      <stop offset="1" stop-color="#22d3ee" stop-opacity="0"/>
+
+    <radialGradient id="glowLime" cx="0.78" cy="0.18" r="0.60">
+      <stop offset="0" stop-color="#e2ff5e" stop-opacity="0.22"/>
+      <stop offset="0.45" stop-color="#e2ff5e" stop-opacity="0.055"/>
+      <stop offset="1" stop-color="#e2ff5e" stop-opacity="0"/>
     </radialGradient>
-    <radialGradient id="glow2" cx="0.22" cy="0.82" r="0.5">
-      <stop offset="0" stop-color="#14b8a6" stop-opacity="0.20"/>
-      <stop offset="1" stop-color="#14b8a6" stop-opacity="0"/>
+
+    <radialGradient id="glowTeal" cx="0.10" cy="0.85" r="0.55">
+      <stop offset="0" stop-color="#2b7e8c" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#2b7e8c" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- soluklaşan çapraz darbe -->
+    <linearGradient id="beamA" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#e2ff5e" stop-opacity="0"/>
+      <stop offset="0.28" stop-color="#e2ff5e" stop-opacity="0.42"/>
+      <stop offset="0.62" stop-color="#e2ff5e" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#e2ff5e" stop-opacity="0"/>
+    </linearGradient>
+
+    <linearGradient id="beamB" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e2ff5e" stop-opacity="0"/>
+      <stop offset="0.34" stop-color="#e2ff5e" stop-opacity="0.20"/>
+      <stop offset="0.68" stop-color="#e2ff5e" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#e2ff5e" stop-opacity="0"/>
+    </linearGradient>
+
+    <linearGradient id="arc" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#e2ff5e" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#e2ff5e" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#e2ff5e" stop-opacity="0"/>
+    </linearGradient>
+
+    <radialGradient id="vig" cx="0.5" cy="0.46" r="0.80">
+      <stop offset="0.52" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.46"/>
+    </radialGradient>
+
+    <!-- kesişim noktasındaki lime sis: diski yok, yumuşak degrade -->
+    <radialGradient id="cross" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#e2ff5e" stop-opacity="0.13"/>
+      <stop offset="0.45" stop-color="#e2ff5e" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="#e2ff5e" stop-opacity="0"/>
     </radialGradient>
   </defs>
+
+  <!-- zemin -->
   <rect width="1920" height="1080" fill="url(#bg)"/>
-  <rect width="1920" height="1080" fill="url(#glow)"/>
-  <rect width="1920" height="1080" fill="url(#glow2)"/>
-  <g opacity="0.5" stroke="#22d3ee" stroke-width="1" fill="none">
-    <path d="M0 760 Q 480 640 960 720 T 1920 660"/>
-    <path d="M0 820 Q 480 700 960 780 T 1920 720" opacity="0.6"/>
-    <path d="M0 880 Q 480 760 960 840 T 1920 780" opacity="0.35"/>
+  <rect width="1920" height="1080" fill="url(#glowTeal)"/>
+  <rect width="1920" height="1080" fill="url(#glowLime)"/>
+
+  <!-- X darbesi 1: sol alt -> sağ üst -->
+  <g fill="none" stroke-linecap="round">
+    <path d="M300 1040 C 760 900, 1180 620, 1660 130"
+          stroke="url(#beamA)" stroke-width="18"/>
+    <path d="M250 1080 C 730 950, 1170 660, 1700 90"
+          stroke="url(#beamA)" stroke-width="3.5" opacity="0.55"/>
   </g>
-  <g transform="translate(960 470)" opacity="0.95">
-    <path d="M0 -150 L150 190 L-150 190 Z" fill="none" stroke="#22d3ee" stroke-width="6" opacity="0.35"/>
-    <path d="M0 -110 L108 160 L-108 160 Z" fill="none" stroke="#67e8f9" stroke-width="4" opacity="0.5"/>
-    <text x="0" y="300" font-family="Ubuntu, DejaVu Sans, sans-serif" font-size="42"
-          font-weight="300" letter-spacing="14" fill="#c9eef5" text-anchor="middle">epixOS</text>
+
+  <!-- X darbesi 2: sol üst -> sağ alt (daha soluk, dengeyi kurar) -->
+  <g fill="none" stroke-linecap="round">
+    <path d="M980 40 C 1220 300, 1420 620, 1600 1010"
+          stroke="url(#beamB)" stroke-width="13"/>
+    <path d="M900 20 C 1170 300, 1390 640, 1570 1060"
+          stroke="url(#beamB)" stroke-width="2.5" opacity="0.5"/>
   </g>
+
+  <!-- kesişim: yumuşak lime sis (düz disk değil) -->
+  <ellipse cx="1300" cy="480" rx="360" ry="300" fill="url(#cross)"/>
+
+  <!-- ufuk yayları -->
+  <g fill="none" stroke="url(#arc)" stroke-linecap="round">
+    <path d="M-60 900 C 420 760, 900 780, 1400 620 C 1680 530, 1880 450, 2000 380"
+          stroke-width="1.6" opacity="0.55"/>
+    <path d="M-60 960 C 460 830, 960 850, 1480 680 C 1740 600, 1900 530, 2020 460"
+          stroke-width="1.2" opacity="0.30"/>
+    <path d="M40 1020 C 540 890, 1000 900, 1520 740"
+          stroke-width="1" opacity="0.16"/>
+  </g>
+
+  <!-- ince ızgara -->
+  <g stroke="#e2ff5e" stroke-width="1" opacity="0.035">
+    <path d="M0 240 H1920 M0 480 H1920 M0 720 H1920"/>
+  </g>
+
+  <!-- kelime işareti: sol alt, panel ve dock ile çakışmaz -->
+  <g transform="translate(132 902)">
+    <text x="0" y="0"
+          font-family="Inter Tight, Ubuntu, Cantarell, DejaVu Sans, sans-serif"
+          font-size="44" font-weight="600" letter-spacing="15"
+          fill="#e2ff5e" text-anchor="start">epixOS</text>
+    <text x="3" y="34"
+          font-family="Inter, Ubuntu, Cantarell, DejaVu Sans, sans-serif"
+          font-size="14" font-weight="400" letter-spacing="6"
+          fill="#cfe6ea" fill-opacity="0.55" text-anchor="start">0.1 · 2026.11 · KAVAK</text>
+  </g>
+
+  <!-- vinyet -->
+  <rect width="1920" height="1080" fill="url(#vig)"/>
 </svg>

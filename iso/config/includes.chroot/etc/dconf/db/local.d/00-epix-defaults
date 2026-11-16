@@ -15,8 +15,9 @@ cursor-theme='Yaru'
 picture-uri='file:///usr/share/backgrounds/epixos/epixos-default.svg'
 picture-uri-dark='file:///usr/share/backgrounds/epixos/epixos-default.svg'
 picture-options='zoom'
-primary-color='#0f1720'
-secondary-color='#1b2a33'
+# Renkler kurumsal Epix logosundan: lime #e2ff5e, navy #16404b, deep #0e2a31
+primary-color='#0e2a31'
+secondary-color='#16404b'
 
 [org/gnome/desktop/screensaver]
 picture-uri='file:///usr/share/backgrounds/epixos/epixos-default.svg'
