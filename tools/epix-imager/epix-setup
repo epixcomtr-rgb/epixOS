@@ -1,0 +1,244 @@
+#!/bin/sh
+# epix-setup — epixOS USB yapılandırmasını ilk açılışta uygula
+#
+# epix-imager, yapılandırmayı USB'de ISO'nun hemen ardına, bölüm tablosunun
+# DIŞINA yazar (bölüm tablosuna dokunmaz → önyükleme bozulmaz).
+# Blob biçimi:
+#   0  8B  "EPIXCFG1"
+#   8  4B  sürüm
+#  12  4B  yük boyutu
+#  16  4B  crc32
+#  20 12B  ayır
+#  32  N   tar arşivi
+#
+# Bu betik diski sondan geriye tarayıp sihirli imzayı bulur, tar'ı açar,
+# ayarları uygular ve tekrar çalışmaması için işaret koyar.
+#
+# Elle çalıştırma:  sudo epix-setup --force
+set -eu
+
+MNT=/run/epix-setup
+WORK=/run/epix-setup-work
+LOG=/var/log/epix-setup.log
+
+log() { printf '%s %s\n' "$(date '+%H:%M:%S')" "$*" | tee -a "$LOG" >&2; }
+die() { log "HATA: $*"; exit 1; }
+
+FORCE=0
+[ "${1:-}" = "--force" ] && FORCE=1
+
+mkdir -p "$MNT" "$WORK"
+
+# ---------------------------------------------------------------- 1) cihazı bul
+# Canlı ortamın bulunduğu diski tespit et
+find_medium_disk() {
+  # casper farklı sürümlerde farklı noktalar kullanır; hepsini dene.
+  for src in /cdrom /run/casper/cdrom /run/live/medium \
+             /lib/live/mount/medium /run/epixos/medium /media/cdrom; do
+    [ -d "$src" ] || continue
+    dev=$(findmnt -no SOURCE "$src" 2>/dev/null | head -1) || continue
+    [ -n "$dev" ] || continue
+    case "$dev" in
+      /dev/loop*) continue ;;    # ISO dosyasından açılmış (findiso)
+    esac
+    echo "$dev" | sed 's/p\?[0-9]*$//'
+    return 0
+  done
+  return 1
+}
+
+# casper hiçbir şey bağlamadıysa: EPIXOS etiketli bölümü ara
+find_labeled_disk() {
+  for d in /dev/disk/by-label/EPIXOS_* /dev/disk/by-label/epixos*; do
+    [ -e "$d" ] || continue
+    real=$(readlink -f "$d")
+    echo "$real" | sed 's/p\?[0-9]*$//'
+    return 0
+  done
+  return 1
+}
+
+DISK=$(find_medium_disk || find_labeled_disk || true)
+if [ -z "$DISK" ]; then
+  log "canlı ortam diski bulunamadı — yapılandırma atlandı"
+  exit 0
+fi
+[ -b "$DISK" ] || die "blok aygıt değil: $DISK"
+log "ortam diski: $DISK"
+
+# ---------------------------------------------------------------- 2) blob'u bul
+# Sondan geriye 1 MiB adımlarla tara (imager 1 MiB hizalı yazıyor)
+TOTAL=$(blockdev --getsz "$DISK" 2>/dev/null) || die "boyut okunamadı"
+log "disk: $TOTAL sektör"
+
+find_blob() {
+  # 1 MiB hizalı adaylar, sondan geriye 4 MiB'lik pencere içinde
+  # (blob 4 MB'tan küçük tutulur)
+  seek=$(( (TOTAL - 2048) / 2048 * 2048 ))
+  tries=0
+  while [ "$seek" -gt 0 ] && [ "$tries" -lt 64 ]; do
+    magic=$(dd if="$DISK" bs=512 skip="$seek" count=1 status=none 2>/dev/null \
+            | dd bs=1 count=8 status=none 2>/dev/null || true)
+    if [ "$magic" = "EPIXCFG1" ]; then
+      echo "$seek"
+      return 0
+    fi
+    seek=$(( seek - 2048 ))
+    tries=$(( tries + 1 ))
+  done
+  return 1
+}
+
+OFFSET=$(find_blob || true)
+if [ -z "$OFFSET" ]; then
+  log "EPIXCFG1 bloğu yok — yapılandırma atlandı (normal)"
+  exit 0
+fi
+log "blob bulundu: sektör $OFFSET"
+
+# ---------------------------------------------------------------- 3) başlığı oku
+HDR=$(dd if="$DISK" bs=512 skip="$OFFSET" count=1 status=none 2>/dev/null)
+# 12. bayttan 4 bayt = yük boyutu (little endian)
+PSIZE=$(printf '%s' "$HDR" | dd bs=1 skip=12 count=4 status=none 2>/dev/null \
+        | od -An -tu4 | tr -d ' \n')
+[ -n "$PSIZE" ] && [ "$PSIZE" -gt 0 ] 2>/dev/null || die "yük boyutu okunamadı"
+[ "$PSIZE" -le 4194304 ] || die "yük çok büyük: $PSIZE"
+log "yük boyutu: $PSIZE bayt"
+
+# ---------------------------------------------------------------- 4) yükü çıkar
+# 32 bayt başlık + yük
+SKIP_BYTES=$(( OFFSET * 512 + 32 ))
+dd if="$DISK" bs=1 skip="$SKIP_BYTES" count="$PSIZE" status=none 2>/dev/null \
+  > "$WORK/payload.tar" || die "yük okunamadı"
+[ -s "$WORK/payload.tar" ] || die "yük boş"
+
+if ! tar -tf "$WORK/payload.tar" >/dev/null 2>&1; then
+  die "yük geçerli bir tar değil"
+fi
+
+rm -rf "$WORK/cfg"; mkdir -p "$WORK/cfg"
+tar -xf "$WORK/payload.tar" -C "$WORK/cfg" || die "yük açılamadı"
+CFG="$WORK/cfg"
+log "yapılandırma açıldı: $(ls "$CFG" | tr '\n' ' ')"
+
+# ---------------------------------------------------------------- 5) daha önce uygulandı mı
+# İşaret: USB'de değil, yerel sistemde (canlı ISO her açılışta sıfırlanır,
+# bu yüzden oturum içinde tekrar çalışmasın diye /var/lib'de tutulur)
+APPLIED=/var/lib/epix-setup/applied
+mkdir -p /var/lib/epix-setup
+if [ -f "$APPLIED" ] && [ "$FORCE" -eq 0 ]; then
+  log "zaten uygulanmış ($APPLIED) — atlanıyor"
+  exit 0
+fi
+
+CONF="$CFG/epix-setup.conf"
+[ -f "$CONF" ] || { log "epix-setup.conf yok — atlanıyor"; exit 0; }
+
+# ---------------------------------------------------------------- 6) ayarları oku
+# shellcheck disable=SC1090
+. "$CONF"
+
+NEW_USER=${EPIX_NEW_USER:-epix}
+HOSTNAME_=${EPIX_HOSTNAME:-epixos}
+SSH_ON=${EPIX_SSH:-1}
+TZ_=${EPIX_TIMEZONE:-Europe/Istanbul}
+LANG_=${EPIX_LANG:-tr_TR.UTF-8}
+
+log "kullanıcı: $NEW_USER  hostname: $HOSTNAME_  ssh: $SSH_ON"
+
+# ---------------------------------------------------------------- 7) hostname
+if [ -n "$HOSTNAME_" ] && [ "$HOSTNAME_" != "epixos" ]; then
+  echo "$HOSTNAME_" > /etc/hostname
+  sed -i "s/127\.0\.1\.1.*/127.0.1.1\t$HOSTNAME_/" /etc/hosts 2>/dev/null || true
+  hostname "$HOSTNAME_" 2>/dev/null || true
+  log "hostname: $HOSTNAME_"
+fi
+
+# ---------------------------------------------------------------- 8) kullanıcı
+if [ "$NEW_USER" != "live" ]; then
+  if id "$NEW_USER" >/dev/null 2>&1; then
+    log "kullanıcı zaten var: $NEW_USER"
+  else
+    log "kullanıcı oluşturuluyor: $NEW_USER"
+    GROUPS=$(id -nG live 2>/dev/null | tr ' ' ',' | sed 's/^live,\?//' || true)
+    [ -n "$GROUPS" ] || GROUPS="sudo,audio,video,plugdev,netdev"
+    useradd -m -s /bin/bash -G "$GROUPS" -c "epixOS kullanıcısı" "$NEW_USER" \
+      || die "kullanıcı oluşturulamadı"
+    if [ -d /etc/skel ]; then
+      cp -a /etc/skel/. "/home/$NEW_USER/" 2>/dev/null || true
+      chown -R "$NEW_USER:$NEW_USER" "/home/$NEW_USER"
+    fi
+  fi
+
+  if [ -f "$CFG/user-password.crypt" ]; then
+    PW=$(cat "$CFG/user-password.crypt")
+    if [ -n "$PW" ]; then
+      echo "$NEW_USER:$PW" | chpasswd -e && log "parola ayarlandı"
+    fi
+  else
+    log "parola dosyası yok — parola boş"
+  fi
+
+  if [ -d /etc/sudoers.d ]; then
+    echo "$NEW_USER ALL=(ALL:ALL) ALL" > "/etc/sudoers.d/90-$NEW_USER"
+    chmod 440 "/etc/sudoers.d/90-$NEW_USER"
+    log "sudo hakkı verildi"
+  fi
+
+  if [ -f "$CFG/authorized_keys" ]; then
+    install -d -m 700 -o "$NEW_USER" -g "$NEW_USER" "/home/$NEW_USER/.ssh"
+    install -m 600 -o "$NEW_USER" -g "$NEW_USER" \
+      "$CFG/authorized_keys" "/home/$NEW_USER/.ssh/authorized_keys"
+    log "SSH açık anahtarı kuruldu"
+  fi
+fi
+
+# ---------------------------------------------------------------- 9) Wi-Fi
+if [ -f "$CFG/wifi.nmconnection" ]; then
+  install -d -m 700 /etc/NetworkManager/system-connections
+  SSID=$(awk -F= '/^ssid=/{print $2; exit}' "$CFG/wifi.nmconnection")
+  DEST="/etc/NetworkManager/system-connections/${SSID:-epix-wifi}.nmconnection"
+  install -m 600 "$CFG/wifi.nmconnection" "$DEST"
+  log "Wi-Fi profili: ${SSID:-?}"
+  if command -v nmcli >/dev/null 2>&1; then
+    nmcli connection reload 2>/dev/null || true
+    # Wi-Fi radyosu kapalı olabilir
+    rfkill unblock wifi 2>/dev/null || true
+    nmcli radio wifi on 2>/dev/null || true
+    nmcli connection up "$SSID" 2>/dev/null && log "Wi-Fi bağlandı" \
+      || log "Wi-Fi şimdilik bağlanamadı (tekrar denenecek)"
+  fi
+fi
+
+# ---------------------------------------------------------------- 10) SSH
+if [ "$SSH_ON" = "1" ]; then
+  install -d -m 755 /etc/ssh/sshd_config.d
+  PWLOGIN=${EPIX_SSH_PASSWORD_LOGIN:-1}
+  if [ "$PWLOGIN" = "1" ]; then PWLINE="PasswordAuthentication yes"
+  else PWLINE="PasswordAuthentication no"; fi
+  cat > /etc/ssh/sshd_config.d/50-epix-setup.conf <<SSHEOF
+# epix-setup tarafından yazıldı
+Port 22
+PermitRootLogin no
+$PWLINE
+PubkeyAuthentication yes
+SSHEOF
+  ssh-keygen -A >/dev/null 2>&1 || true
+  systemctl enable ssh >/dev/null 2>&1 || true
+  systemctl restart ssh 2>/dev/null || true
+  log "SSH açık (port 22, parola girişi: $PWLOGIN)"
+else
+  systemctl disable ssh >/dev/null 2>&1 || true
+  log "SSH kapalı"
+fi
+
+# ---------------------------------------------------------------- 11) dil / saat
+command -v localectl >/dev/null 2>&1 && localectl set-locale LANG="$LANG_" 2>/dev/null || true
+command -v timedatectl >/dev/null 2>&1 && timedatectl set-timezone "$TZ_" 2>/dev/null || true
+log "dil: $LANG_  saat dilimi: $TZ_"
+
+# ---------------------------------------------------------------- 12) işaretle
+date -u '+%Y-%m-%dT%H:%M:%SZ' > "$APPLIED"
+log "işaret: $APPLIED"
+log "epix-setup tamamlandı"
+exit 0

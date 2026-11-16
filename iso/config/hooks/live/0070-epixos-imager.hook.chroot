@@ -1,0 +1,50 @@
+#!/bin/sh
+# epixOS — epix-setup'ı canlı oturum açılışında bir kez çalıştır
+#
+# epix-imager USB'ye yapılandırma bloğu yazdıysa (EPIXCFG1), bu servis onu
+# okur ve uygular: kullanıcı, parola, hostname, SSH, Wi-Fi.
+#
+# Neden early (sysinit.target):
+#   - Wi-Fi ve SSH masaüstünden ÖNCE hazır olmalı (headless kullanım)
+#   - Ama NetworkManager'ın çalışıyor olması gerekir → After=NetworkManager
+#
+# Hata durumunda açılışı BLOKLAMAZ: yapılandırma yoksa veya bozuksa
+# normal canlı oturum devam eder (Type=oneshot + RemainAfterExit + - prefix).
+set -e
+
+mkdir -p /etc/systemd/system
+cat > /etc/systemd/system/epix-setup.service <<'EOF'
+[Unit]
+Description=epixOS USB yapilandirmasini uygula (epix-imager)
+Documentation=man:epix-setup(8) https://os.epix.tr/indir/
+# Wi-Fi profili kurulacaksa NetworkManager hazır olmalı
+After=NetworkManager.service local-fs.target
+Wants=NetworkManager.service
+Before=gdm.service display-manager.service ssh.service
+ConditionPathExists=/usr/local/bin/epix-setup
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# USB yoksa/bozuksa açılışı engellemesin
+ExecStart=-/usr/local/bin/epix-setup
+TimeoutStartSec=90
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=sysinit.target
+EOF
+
+chmod 644 /etc/systemd/system/epix-setup.service
+systemctl enable epix-setup.service >/dev/null 2>&1 || true
+echo "P: epix-setup.service hazır (sysinit.target)"
+
+# Oturum içinde elle çalıştırma kolaylığı
+cat > /usr/local/bin/epix-setup-run <<'EOF'
+#!/bin/sh
+# epix-setup'ı elle çalıştır (USB'deki yapılandırmayı yeniden uygula)
+exec sudo /usr/local/bin/epix-setup --force
+EOF
+chmod 755 /usr/local/bin/epix-setup-run
+echo "P: epix-setup-run hazır"

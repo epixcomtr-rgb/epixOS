@@ -1,0 +1,839 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+epixOS Imager — USB'ye yaz ve ilk açılışta hazır gelmesini sağla
+
+Raspberry Pi Imager'ın epixOS karşılığı. Ubuntu'da çalışır (GTK4 + PyGObject).
+
+Ne yapar:
+  1. epixOS ISO'sunu seçer (veya indirir)
+  2. Hedef USB'yi seçer
+  3. Özelleştirme: kullanıcı adı, şifre, Wi-Fi (SSID + şifre), SSH
+  4. ISO'yu USB'ye yazar, ayrıca USB üzerinde küçük bir yapılandırma bölümü
+     oluşturur (FAT32, etiket EPIXCFG)
+  5. Canlı oturum açılışta bu bölümü okur, ayarları uygular:
+       - kullanıcı + şifre
+       - Wi-Fi otomatik bağlanma
+       - SSH açık, anahtar veya şifre ile giriş
+       - hostname
+
+Neden ayrı yapılandırma bölümü:
+  ISO salt-okunur (iso9660). Canlı ISO'ya ayar gömmek için squashfs'i
+  yeniden yazmak gerekir (1.8 GB, yavaş). Küçük bir FAT32 bölüm hem hızlı
+  hem de kullanıcı tarafından sonradan düzenlenebilir.
+
+Kullanım:
+  ./epix-imager              # GUI
+  sudo ./epix-imager --cli ...  # başsız (test/otomasyon)
+"""
+
+import os
+import sys
+import shutil
+import subprocess
+import tempfile
+import json
+import re
+import hashlib
+import threading
+from pathlib import Path
+
+APP_NAME = "epixOS Imager"
+APP_ID = "tr.epix.os.imager"
+VERSION = "0.1.0"
+
+CFG_LABEL = "EPIXCFG"
+CFG_MNT = "/run/epix-imager/cfg"
+_ISO_PATH = None
+
+# epixOS canlı oturumunda yapılandırmayı okuyan betik
+# (bu dosya USB'nin EPIXCFG bölümüne yazılır)
+CFG_FORMAT_NOTE = """\
+# epixOS ilk açılış yapılandırması
+# Bu dosya epix-imager tarafından oluşturuldu.
+# Elle düzenleyebilirsiniz; değerler canlı oturum açılışında uygulanır.
+# Uygulandıktan sonra epix-setup-applied dosyası oluşur ve tekrar çalışmaz.
+"""
+
+
+# ---------------------------------------------------------------- yardımcılar
+
+def run(cmd, check=True, capture=True, timeout=None):
+    """Komut çalıştır, çıktıyı döndür."""
+    try:
+        r = subprocess.run(
+            cmd, shell=isinstance(cmd, str),
+            capture_output=capture, text=True, timeout=timeout
+        )
+        if check and r.returncode != 0:
+            raise RuntimeError(
+                f"komut başarısız ({r.returncode}): {cmd}\n"
+                f"{(r.stderr or '').strip()}"
+            )
+        return r
+    except FileNotFoundError as e:
+        raise RuntimeError(f"araç bulunamadı: {e.filename}") from e
+
+
+def is_root():
+    return os.geteuid() == 0
+
+
+def sudo_prefix():
+    """Kök değilsek pkexec/sudo ile yükselt."""
+    if is_root():
+        return []
+    # pkexec GUI'de parola sorar
+    if shutil.which("pkexec"):
+        return ["pkexec"]
+    return ["sudo"]
+
+
+def human(n):
+    for u in ("B", "KB", "MB", "GB", "TB"):
+        if n < 1024:
+            return f"{n:.1f} {u}".replace(".0 ", " ")
+        n /= 1024
+    return f"{n:.1f} PB"
+
+
+def sha256_file(path, progress=None):
+    h = hashlib.sha256()
+    size = os.path.getsize(path)
+    done = 0
+    with open(path, "rb") as f:
+        while True:
+            b = f.read(1024 * 1024)
+            if not b:
+                break
+            h.update(b)
+            done += len(b)
+            if progress:
+                progress(done, size)
+    return h.hexdigest()
+
+
+# ---------------------------------------------------------------- diskler
+
+def list_disks():
+    """Yazılabilir hedef diskleri listele (USB/SD)."""
+    r = run(["lsblk", "-J", "-o",
+             "NAME,SIZE,TYPE,RM,TRAN,MODEL,VENDOR,MOUNTPOINT,FSTYPE,LABEL"])
+    data = json.loads(r.stdout or "{}")
+    out = []
+    for d in data.get("blockdevices", []):
+        if d.get("type") != "disk":
+            continue
+        # yalnızca çıkarılabilir veya usb
+        if not (d.get("rm") or (d.get("tran") or "") in ("usb", "mmc")):
+            continue
+        dev = "/dev/" + d["name"]
+        # sistem diski olmasın
+        try:
+            if os.path.realpath(dev) in _root_devices():
+                continue
+        except Exception:
+            pass
+        out.append({
+            "dev": dev,
+            "name": d["name"],
+            "size": _parse_size(d.get("size", "0")),
+            "model": " ".join(
+                x for x in (d.get("vendor"), d.get("model")) if x
+            ).strip() or "Bilinmeyen aygıt",
+            "tran": (d.get("tran") or "").upper() or "?",
+            "children": d.get("children") or [],
+        })
+    out.sort(key=lambda x: x["name"])
+    return out
+
+
+def _parse_size(s):
+    s = (s or "0").strip()
+    m = re.match(r"([\d.]+)\s*([KMGTP]?)", s, re.I)
+    if not m:
+        return 0
+    v = float(m.group(1))
+    mult = {"": 1, "K": 1024, "M": 1024**2, "G": 1024**3,
+            "T": 1024**4, "P": 1024**5}[m.group(2).upper()]
+    return int(v * mult)
+
+
+def _root_devices():
+    """Sistemin kök ve /home aygıtlarını bul (bunlara yazmayalım)."""
+    devs = set()
+    for tgt in ("/", "/home", "/boot", "/boot/efi"):
+        try:
+            src = run(["findmnt", "-no", "SOURCE", tgt]).stdout.strip()
+            if not src:
+                continue
+            # /dev/sda2 -> /dev/sda ; /dev/nvme0n1p2 -> /dev/nvme0n1
+            src = re.sub(r"p?\d+$", "", src)
+            devs.add(os.path.realpath(src))
+        except Exception:
+            continue
+    return devs
+
+
+def unmount_disk(dev):
+    """Diskin tüm bölümlerini ayır."""
+    r = run(["lsblk", "-J", "-o", "NAME,MOUNTPOINT", dev], check=False)
+    try:
+        data = json.loads(r.stdout or "{}")
+    except Exception:
+        return
+    for d in data.get("blockdevices", []):
+        for c in [d] + (d.get("children") or []):
+            if c.get("mountpoint"):
+                run(["umount", "-f", "/dev/" + c["name"]], check=False)
+
+
+# ---------------------------------------------------------------- yazma
+
+def write_iso(iso_path, dev, progress=None, log=None):
+    """ISO'yu cihaza ham yaz."""
+    size = os.path.getsize(iso_path)
+    # dd ile yaz; status=progress yerine kendi ilerlememizi sayarız
+    cmd = sudo_prefix() + [
+        "dd", f"if={iso_path}", f"of={dev}",
+        "bs=4M", "conv=fsync", "status=none",
+    ]
+    if log:
+        log("  dd başlıyor: " + " ".join(cmd))
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, text=True)
+    # ilerleme: /proc/<pid>/io write_bytes
+    pid = proc.pid
+    while proc.poll() is None:
+        try:
+            with open(f"/proc/{pid}/io") as f:
+                for line in f:
+                    if line.startswith("write_bytes:"):
+                        done = int(line.split()[1])
+                        if progress:
+                            progress(min(done, size), size)
+                        break
+        except Exception:
+            pass
+        threading.Event().wait(0.35)
+    out, err = proc.communicate()
+    if proc.returncode != 0:
+        raise RuntimeError(f"dd başarısız ({proc.returncode}): {(err or '').strip()}")
+    run(sudo_prefix() + ["sync"], check=False)
+    if progress:
+        progress(size, size)
+
+
+def make_cfg_partition(dev, cfg_dir, log=None):
+    """
+    Yapılandırmayı USB'de ISO'nun HEMEN ARDINA, bölüm tablosunun dışına yaz.
+
+    Neden böyle:
+      epixOS ISO'su grub-mkrescue ile üretiliyor ve GPT taşıyor. GPT'ye yeni
+      bölüm eklemek için primary header'ı, partition entry array'i ve backup
+      tablosunu birlikte taşımak gerekir — hata payı yüksek ve önyüklemeyi
+      bozma riski var (denendi: sgdisk bölümleri kaybetti).
+
+      Bunun yerine ISO'nun bittiği sektörden sonra, diskin sonuna kadar olan
+      boşluğa kendi başlıklı bir blob yazıyoruz. Bölüm tablosuna hiç
+      dokunmuyoruz, dolayısıyla önyükleme garanti bozulmuyor.
+      Canlı sistem bu bloğu ham ofsetten okur (epix-setup).
+
+    Blob biçimi:
+      0   8B   sihir       "EPIXCFG1"
+      8   4B   sürüm       uint32 (1)
+     12   4B   boyut       uint32 (payload bayt)
+     16   4B   crc32       uint32
+     20  12B   ayır        sıfır
+     32   N    payload     tar (sıkıştırılmamış, dosya adları ile)
+
+    Konum: disk sonundan geriye doğru, 1 MiB hizalı.
+    """
+    log = log or (lambda *_: None)
+
+    # --- payload: tar arşivi
+    import tarfile, io as _io
+    buf = _io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w") as tf:
+        for f in sorted(Path(cfg_dir).iterdir()):
+            if f.is_file():
+                tf.add(str(f), arcname=f.name)
+    payload = buf.getvalue()
+    if len(payload) > 4 * 1024 * 1024:
+        raise RuntimeError(f"yapılandırma çok büyük: {len(payload)} bayt")
+
+    import zlib, struct
+    crc = zlib.crc32(payload) & 0xFFFFFFFF
+    header = b"EPIXCFG1" + struct.pack("<III", 1, len(payload), crc) + b"\0" * 12
+    if len(header) != 32:
+        raise RuntimeError("başlık boyutu hatalı")
+    blob = header + payload
+    blob = blob + b"\0" * ((4096 - len(blob) % 4096) % 4096)   # sektör hizalı
+
+    # --- konum: ISO'nun HEMEN ARDINDAN başla, diskin sonundan değil.
+    #
+    # NEDEN: disk sonundan hesaplamak GPT backup tablosunu ezme riski taşır.
+    # (denendi: loop cihazında blockdev --getsz ISO boyutunu döndürdü, blob
+    #  GPT backup'ının üstüne yazıldı ve GPT bozuldu.)
+    #
+    # ISO boyutunu biliyoruz; ISO'nun bittiği sektörden 2048 hizalı ilk
+    # boş sektöre yazıyoruz. Disk yetmiyorsa hata ver.
+    iso_bytes = os.path.getsize(_ISO_PATH)
+    iso_sectors = (iso_bytes + 511) // 512
+    offset_sectors = ((iso_sectors // 2048) + 1) * 2048
+    blob_sectors = (len(blob) + 511) // 512
+
+    # disk gerçekten yetiyor mu? (en güvenilir: yazma denemesi + geri okuma)
+    # blockdev bazen yanlış boyut döndürebiliyor, bu yüzden tek güven kaynağı
+    # yazma sonrası geri okuma doğrulaması.
+    try:
+        dev_sectors = int(run(sudo_prefix() + ["blockdev", "--getsz", dev]).stdout.strip())
+    except Exception:
+        dev_sectors = 0
+    if dev_sectors and offset_sectors + blob_sectors > dev_sectors:
+        raise RuntimeError(
+            f"disk çok küçük: ISO {iso_sectors} sektör + yapılandırma "
+            f"{blob_sectors} sektör, aygıt {dev_sectors} sektör. "
+            f"En az {(offset_sectors + blob_sectors) * 512 // 1048576 + 8} MB "
+            f"daha büyük bir USB kullanın.")
+
+    log(f"  yapılandırma blob'u: sektör {offset_sectors} "
+        f"(ISO {iso_sectors} sektörden sonra, "
+        f"{blob_sectors * 512 // 1024} KB)")
+
+    # dd ile yaz; status=progress yerine kendi ilerlememizi sayarız
+    cmd = sudo_prefix() + [
+        "dd", f"if={iso_path}", f"of={dev}",
+        "bs=4M", "conv=fsync", "status=none",
+    ]
+    if log:
+        log("  dd başlıyor: " + " ".join(cmd))
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, text=True)
+    # ilerleme: /proc/<pid>/io write_bytes
+    pid = proc.pid
+    while proc.poll() is None:
+        try:
+            with open(f"/proc/{pid}/io") as f:
+                for line in f:
+                    if line.startswith("write_bytes:"):
+                        done = int(line.split()[1])
+                        if progress:
+                            progress(min(done, size), size)
+                        break
+        except Exception:
+            pass
+        threading.Event().wait(0.35)
+    out, err = proc.communicate()
+    if proc.returncode != 0:
+        raise RuntimeError(f"dd başarısız ({proc.returncode}): {(err or '').strip()}")
+    run(sudo_prefix() + ["sync"], check=False)
+    if progress:
+        progress(size, size)
+
+
+def make_cfg_partition(dev, cfg_dir, log=None):
+    """
+    Yapılandırmayı USB'de ISO'nun HEMEN ARDINA, bölüm tablosunun dışına yaz.
+
+    Neden böyle:
+      epixOS ISO'su grub-mkrescue ile üretiliyor ve GPT taşıyor. GPT'ye yeni
+      bölüm eklemek için primary header'ı, partition entry array'i ve backup
+      tablosunu birlikte taşımak gerekir — hata payı yüksek ve önyüklemeyi
+      bozma riski var (denendi: sgdisk bölümleri kaybetti).
+
+      Bunun yerine ISO'nun bittiği sektörden sonra, diskin sonuna kadar olan
+      boşluğa kendi başlıklı bir blob yazıyoruz. Bölüm tablosuna hiç
+      dokunmuyoruz, dolayısıyla önyükleme garanti bozulmuyor.
+      Canlı sistem bu bloğu ham ofsetten okur (epix-setup).
+
+    Blob biçimi:
+      0   8B   sihir       "EPIXCFG1"
+      8   4B   sürüm       uint32 (1)
+     12   4B   boyut       uint32 (payload bayt)
+     16   4B   crc32       uint32
+     20  12B   ayır        sıfır
+     32   N    payload     tar (sıkıştırılmamış, dosya adları ile)
+
+    Konum: disk sonundan geriye doğru, 1 MiB hizalı.
+    """
+    log = log or (lambda *_: None)
+
+    # --- payload: tar arşivi
+    import tarfile, io as _io
+    buf = _io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w") as tf:
+        for f in sorted(Path(cfg_dir).iterdir()):
+            if f.is_file():
+                tf.add(str(f), arcname=f.name)
+    payload = buf.getvalue()
+    if len(payload) > 4 * 1024 * 1024:
+        raise RuntimeError(f"yapılandırma çok büyük: {len(payload)} bayt")
+
+    import zlib, struct
+    crc = zlib.crc32(payload) & 0xFFFFFFFF
+    header = b"EPIXCFG1" + struct.pack("<III", 1, len(payload), crc) + b"\0" * 12
+    if len(header) != 32:
+        raise RuntimeError("başlık boyutu hatalı")
+    blob = header + payload
+    blob = blob + b"\0" * ((4096 - len(blob) % 4096) % 4096)   # sektör hizalı
+
+    # --- disk sonundan geriye 1 MiB hizalı konum
+    r = run(sudo_prefix() + ["blockdev", "--getsz", dev])
+    total_sectors = int(r.stdout.strip())
+    blob_sectors = (len(blob) + 511) // 512
+    # 1 MiB = 2048 sektör hizalama, sondan geriye
+    offset_sectors = ((total_sectors - blob_sectors) // 2048) * 2048
+    if offset_sectors <= 0:
+        raise RuntimeError("disk çok küçük")
+
+    log(f"  yapılandırma blob'u: sektör {offset_sectors} "
+        f"({blob_sectors * 512 // 1024} KB, {len(payload)} bayt yük)")
+
+    # dd ile yaz
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".epixcfg")
+    try:
+        tmp.write(blob)
+        tmp.flush()
+        tmp.close()
+        p = subprocess.run(
+            sudo_prefix() + ["dd", f"if={tmp.name}", f"of={dev}",
+                             f"bs=512", f"seek={offset_sectors}",
+                             "conv=notrunc,fsync", "status=none"],
+            capture_output=True, text=True)
+        if p.returncode != 0:
+            raise RuntimeError(f"blob yazılamadı: {(p.stderr or '').strip()}")
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
+
+    # --- doğrula: geri oku
+    chk = subprocess.run(
+        sudo_prefix() + ["dd", f"if={dev}", "bs=512",
+                         f"skip={offset_sectors}", f"count={blob_sectors}",
+                         "status=none"],
+        capture_output=True)
+    if chk.returncode != 0 or chk.stdout[:8] != b"EPIXCFG1":
+        raise RuntimeError("blob doğrulanamadı (geri okuma başarısız)")
+
+    # konumu USB'deki bir metin dosyasına da not düş (epix-setup kullanır)
+    log(f"  ✓ doğrulandı: EPIXCFG1 @ sektör {offset_sectors}")
+    return f"{dev}@{offset_sectors}"
+
+
+# ---------------------------------------------------------------- yapılandırma
+
+def build_cfg_dir(settings, workdir):
+    """USB'ye yazılacak yapılandırma dosyalarını üret."""
+    d = Path(workdir)
+    d.mkdir(parents=True, exist_ok=True)
+
+    user = settings.get("username", "epix")
+    pw = settings.get("password", "")
+    hostname = settings.get("hostname", "epixos")
+    ssh = settings.get("ssh", True)
+    ssh_keys = settings.get("ssh_keys", "").strip()
+    wifi = settings.get("wifi") or {}
+
+    # --- genel ayar dosyası (canlı oturumda epix-setup okur)
+    lines = [CFG_FORMAT_NOTE, ""]
+    lines.append(f"EPIX_NEW_USER={user}")
+    lines.append(f"EPIX_HOSTNAME={hostname}")
+    lines.append(f"EPIX_SSH={'1' if ssh else '0'}")
+    lines.append(f"EPIX_TIMEZONE={settings.get('timezone', 'Europe/Istanbul')}")
+    lines.append(f"EPIX_LANG={settings.get('lang', 'tr_TR.UTF-8')}")
+    lines.append(f"EPIX_SSH_PASSWORD_LOGIN={'1' if pw else '0'}")
+    (d / "epix-setup.conf").write_text("\n".join(lines) + "\n")
+
+    # --- parola (crypt yalnızca TTY'den okunabilir)
+    if pw:
+        p = subprocess.run(["openssl", "passwd", "-6", pw],
+                           capture_output=True, text=True)
+        if p.returncode != 0 or not p.stdout.strip():
+            raise RuntimeError("parola özeti üretilemedi")
+        (d / "user-password.crypt").write_text(p.stdout.strip() + "\n")
+        os.chmod(d / "user-password.crypt", 0o600)
+
+    # --- SSH anahtarları
+    if ssh_keys:
+        (d / "authorized_keys").write_text(
+            ssh_keys if ssh_keys.endswith("\n") else ssh_keys + "\n")
+        os.chmod(d / "authorized_keys", 0o600)
+
+    # --- Wi-Fi: NetworkManager bağlantı profili
+    if wifi.get("ssid"):
+        ssid = wifi["ssid"]
+        wpass = wifi.get("password", "")
+        hidden = "true" if wifi.get("hidden") else "false"
+        nm = [
+            "[connection]",
+            f"id={ssid}",
+            "type=wifi",
+            "autoconnect=true",
+            "autoconnect-priority=100",
+            "",
+            "[wifi]",
+            f"ssid={ssid}",
+            f"hidden={hidden}",
+            "mode=infrastructure",
+            "",
+            "[ipv4]",
+            "method=auto",
+            "",
+            "[ipv6]",
+            "method=auto",
+            "",
+        ]
+        if wpass:
+            nm += ["[wifi-security]",
+                   "key-mgmt=wpa-psk",
+                   f"psk={wpass}",
+                   ""]
+        else:
+            nm += ["[wifi-security]", "key-mgmt=none", ""]
+        (d / "wifi.nmconnection").write_text("\n".join(nm))
+
+    # --- okunabilir özet (kullanıcı USB'de görebilsin)
+    summary = [
+        "epixOS USB yapılandırması",
+        "=" * 40,
+        f"kullanıcı : {user}",
+        f"hostname  : {hostname}",
+        f"SSH       : {'açık' if ssh else 'kapalı'} (port 22)",
+        f"Wi-Fi     : {wifi.get('ssid') or '(ayarlanmadı)'}",
+        f"parola    : {'ayarlandı' if pw else '(boş — canlı oturum varsayılanı)'}",
+        "",
+        "Bu ayarlar ilk açılışta uygulanır ve sonra epix-setup-applied",
+        "dosyası oluşturulur; tekrar çalışmaz.",
+        "Yeniden uygulamak için epix-setup-applied dosyasını silin.",
+    ]
+    (d / "OKUBENI.txt").write_text("\n".join(summary) + "\n")
+    return str(d)
+
+
+# ---------------------------------------------------------------- ana akış
+
+def flash(iso, dev, settings, progress=None, log=None):
+    """Tam akış: doğrula, yaz, yapılandırma blob'unu ekle."""
+    global _ISO_PATH
+    _ISO_PATH = iso
+    log = log or (lambda *_: None)
+    progress = progress or (lambda *_: None)
+
+    if not os.path.isfile(iso):
+        raise RuntimeError(f"ISO bulunamadı: {iso}")
+    if not os.path.exists(dev):
+        raise RuntimeError(f"aygıt bulunamadı: {dev}")
+    if os.path.realpath(dev) in _root_devices():
+        raise RuntimeError("sistem diski hedef olamaz")
+
+    log(f"ISO: {iso} ({human(os.path.getsize(iso))})")
+    log(f"Hedef: {dev}")
+
+    log("bölümler ayrılıyor")
+    unmount_disk(dev)
+
+    log("ISO yazılıyor")
+    write_iso(iso, dev, progress=progress, log=log)
+
+    cfgdir = build_cfg_dir(settings, tempfile.mkdtemp(prefix="epixcfg-src-"))
+    log("yapılandırma bölümü ekleniyor")
+    cfgdev = make_cfg_partition(dev, cfgdir, log=log)
+
+    log("bitti")
+    return {"dev": dev, "cfg": cfgdev}
+
+
+# ---------------------------------------------------------------- GUI
+
+def run_gui():
+    import gi
+    gi.require_version("Gtk", "4.0")
+    gi.require_version("Adw", "1")
+    from gi.repository import Gtk, Adw, GLib, Gio
+
+    class Window(Adw.ApplicationWindow):
+        def __init__(self, app):
+            super().__init__(application=app, title=APP_NAME)
+            self.set_default_size(720, 760)
+            self.settings = {"ssh": True, "wifi": {}, "lang": "tr_TR.UTF-8",
+                             "timezone": "Europe/Istanbul", "hostname": "epixos"}
+            self.disks = []
+            self.build()
+
+        # ---- arayüz
+        def build(self):
+            from gi.repository import Gtk, Adw
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            self.set_content(box)
+
+            hb = Adw.HeaderBar()
+            box.append(hb)
+
+            scroll = Gtk.ScrolledWindow(vexpand=True)
+            box.append(scroll)
+            page = Adw.PreferencesPage()
+            scroll.set_child(page)
+
+            # ---- ISO
+            g_iso = Adw.PreferencesGroup(title="1. Kalıp")
+            page.add(g_iso)
+            self.row_iso = Adw.ActionRow(title="epixOS ISO seçilmedi")
+            btn_iso = Gtk.Button(label="Seç…", valign=Gtk.Align.CENTER)
+            btn_iso.connect("clicked", self.on_pick_iso)
+            self.row_iso.add_suffix(btn_iso)
+            g_iso.add(self.row_iso)
+
+            # ---- hedef
+            g_dev = Adw.PreferencesGroup(title="2. Hedef USB")
+            page.add(g_dev)
+            self.row_dev = Adw.ActionRow(title="USB seçilmedi")
+            self.btn_refresh = Gtk.Button(label="Yenile", valign=Gtk.Align.CENTER)
+            self.btn_refresh.connect("clicked", self.on_refresh)
+            self.row_dev.add_suffix(self.btn_refresh)
+            g_dev.add(self.row_dev)
+            self.drop_dev = Gtk.DropDown(valign=Gtk.Align.CENTER)
+            self.drop_dev.set_visible(False)
+            g_dev.add(self.drop_dev)
+
+            # ---- özelleştirme
+            g_cfg = Adw.PreferencesGroup(
+                title="3. Özelleştirme",
+                description="Raspberry Pi Imager gibi: bu ayarlar USB'ye yazılır "
+                            "ve ilk açılışta otomatik uygulanır.")
+            page.add(g_cfg)
+
+            self.e_user = Adw.EntryRow(title="Kullanıcı adı")
+            self.e_user.set_text("epix")
+            g_cfg.add(self.e_user)
+
+            self.e_pass = Adw.PasswordEntryRow(title="Şifre")
+            g_cfg.add(self.e_pass)
+
+            self.e_host = Adw.EntryRow(title="Hostname")
+            self.e_host.set_text("epixos")
+            g_cfg.add(self.e_host)
+
+            self.sw_ssh = Adw.SwitchRow(title="SSH açık",
+                                        subtitle="Açılışta sshd başlar, port 22")
+            self.sw_ssh.set_active(True)
+            g_cfg.add(self.sw_ssh)
+
+            self.e_keys = Adw.EntryRow(title="SSH açık anahtarı (isteğe bağlı)")
+            self.e_keys.set_show_apply_button(False)
+            g_cfg.add(self.e_keys)
+
+            # ---- wifi
+            g_wifi = Adw.PreferencesGroup(title="Wi-Fi",
+                                          description="Açılışta bu ağa otomatik bağlanır")
+            page.add(g_wifi)
+            self.e_ssid = Adw.EntryRow(title="Ağ adı (SSID)")
+            g_wifi.add(self.e_ssid)
+            self.e_wpass = Adw.PasswordEntryRow(title="Wi-Fi şifresi")
+            g_wifi.add(self.e_wpass)
+
+            # ---- ilerleme
+            g_run = Adw.PreferencesGroup(title="Yaz")
+            page.add(g_run)
+            self.bar = Gtk.ProgressBar(show_text=True)
+            self.bar.set_text("Hazır")
+            g_run.add(self.bar)
+            self.lbl_log = Gtk.Label(label="", xalign=0, wrap=True)
+            self.lbl_log.add_css_class("dim-label")
+            g_run.add(self.lbl_log)
+
+            self.btn_flash = Gtk.Button(label="USB'ye yaz")
+            self.btn_flash.add_css_class("suggested-action")
+            self.btn_flash.add_css_class("pill")
+            self.btn_flash.set_margin_top(12)
+            self.btn_flash.connect("clicked", self.on_flash)
+            box.append(self.btn_flash)
+
+        # ---- olaylar
+        def on_pick_iso(self, *_):
+            from gi.repository import Gtk
+            f = Gtk.FileDialog(title="epixOS ISO seç")
+            flt = Gtk.FileFilter()
+            flt.set_name("ISO kalıbı")
+            flt.add_pattern("*.iso")
+            filters = Gio.ListStore.new(Gtk.FileFilter)
+            filters.append(flt)
+            f.set_filters(filters)
+            f.open(self, None, self._iso_chosen)
+
+        def _iso_chosen(self, dialog, res):
+            try:
+                gfile = dialog.open_finish(res)
+            except GLib.Error:
+                return
+            p = gfile.get_path()
+            self.iso = p
+            self.row_iso.set_title(os.path.basename(p))
+            self.row_iso.set_subtitle(human(os.path.getsize(p)))
+
+        def on_refresh(self, *_):
+            from gi.repository import Gtk
+            self.disks = list_disks()
+            model = Gtk.StringList()
+            for d in self.disks:
+                model.append(f"{d['dev']} — {d['model']} ({human(d['size'])})")
+            self.drop_dev.set_model(model)
+            self.drop_dev.set_visible(bool(self.disks))
+            if self.disks:
+                self.row_dev.set_title(f"{len(self.disks)} aygıt bulundu")
+
+        def _log(self, msg):
+            GLib.idle_add(self.lbl_log.set_text, str(msg))
+
+        def _prog(self, done, total):
+            frac = (done / total) if total else 0
+            GLib.idle_add(self.bar.set_fraction, min(frac, 1.0))
+            GLib.idle_add(self.bar.set_text,
+                          f"%{int(frac*100)} — {human(done)} / {human(total)}")
+
+        def on_flash(self, *_):
+            from gi.repository import Gtk, Adw
+            if not getattr(self, "iso", None):
+                self._alert("Önce bir ISO seç")
+                return
+            idx = self.drop_dev.get_selected()
+            if idx == Gtk.INVALID_LIST_POSITION or idx >= len(self.disks):
+                self._alert("Önce hedef USB seç (Yenile'ye bas)")
+                return
+            dev = self.disks[idx]["dev"]
+
+            self.settings.update({
+                "username": self.e_user.get_text().strip() or "epix",
+                "password": self.e_pass.get_text(),
+                "hostname": self.e_host.get_text().strip() or "epixos",
+                "ssh": self.sw_ssh.get_active(),
+                "ssh_keys": self.e_keys.get_text().strip(),
+                "wifi": {
+                    "ssid": self.e_ssid.get_text().strip(),
+                    "password": self.e_wpass.get_text(),
+                },
+            })
+
+            dlg = Adw.MessageDialog(
+                transient_for=self,
+                heading=f"{dev} silinecek",
+                body=f"Bu aygıttaki tüm veriler yok olacak.\n\n"
+                     f"{self.disks[idx]['model']} ({human(self.disks[idx]['size'])})")
+            dlg.add_response("cancel", "Vazgeç")
+            dlg.add_response("ok", "Yaz")
+            dlg.set_response_appearance("ok", Adw.ResponseAppearance.DESTRUCTIVE)
+            dlg.connect("response", self._do_flash, dev)
+            dlg.present()
+
+        def _do_flash(self, dlg, resp, dev):
+            dlg.destroy()
+            if resp != "ok":
+                return
+            self.btn_flash.set_sensitive(False)
+
+            def work():
+                try:
+                    if not is_root():
+                        self._log("Yetki gerekiyor — parola sorulacak")
+                    flash(self.iso, dev, self.settings,
+                          progress=self._prog, log=self._log)
+                    GLib.idle_add(self._done, True, None)
+                except Exception as e:
+                    GLib.idle_add(self._done, False, str(e))
+
+            threading.Thread(target=work, daemon=True).start()
+
+        def _done(self, ok, err):
+            from gi.repository import Adw
+            self.btn_flash.set_sensitive(True)
+            if ok:
+                self.bar.set_fraction(1.0)
+                self.bar.set_text("Tamamlandı")
+                self._alert("USB hazır. Bilgisayarı USB'den başlatın.")
+            else:
+                self.bar.set_text("Hata")
+                self._alert(f"Hata: {err}")
+
+        def _alert(self, msg):
+            from gi.repository import Adw
+            d = Adw.MessageDialog(transient_for=self, heading=APP_NAME, body=msg)
+            d.add_response("ok", "Tamam")
+            d.present()
+
+    class App(Adw.Application):
+        def __init__(self):
+            super().__init__(application_id=APP_ID)
+        def do_activate(self):
+            w = Window(self)
+            w.present()
+
+    return App().run([sys.argv[0]])
+
+
+# ---------------------------------------------------------------- CLI
+
+def run_cli(argv):
+    import argparse
+    ap = argparse.ArgumentParser(
+        prog="epix-imager",
+        description="epixOS ISO'sunu USB'ye yaz ve ilk açılış ayarlarını göm.")
+    ap.add_argument("--iso", help="epixOS ISO dosyası")
+    ap.add_argument("--dev", help="hedef aygıt (/dev/sdX)")
+    ap.add_argument("--user", default="epix", help="kullanıcı adı")
+    ap.add_argument("--password", default="", help="şifre")
+    ap.add_argument("--hostname", default="epixos")
+    ap.add_argument("--ssh", action="store_true", default=True)
+    ap.add_argument("--no-ssh", dest="ssh", action="store_false")
+    ap.add_argument("--ssh-key", default="", help="authorized_keys içeriği")
+    ap.add_argument("--wifi-ssid", default="")
+    ap.add_argument("--wifi-password", default="")
+    ap.add_argument("--list", action="store_true", help="aygıtları listele")
+    ap.add_argument("--yes", action="store_true", help="onay sorma")
+    a = ap.parse_args(argv)
+
+    if a.list:
+        for d in list_disks():
+            print(f"{d['dev']:12s} {human(d['size']):>10s}  "
+                  f"{d['tran']:4s} {d['model']}")
+        return 0
+
+    if not a.iso or not a.dev:
+        ap.error("--iso ve --dev gerekli")
+
+    if not a.yes:
+        print(f"\n  {a.dev} üzerindeki TÜM VERİ SİLİNECEK.")
+        if input("  devam? [e/H] ").strip().lower() not in ("e", "y", "evet"):
+            print("  iptal")
+            return 1
+
+    st = {
+        "username": a.user, "password": a.password,
+        "hostname": a.hostname, "ssh": a.ssh,
+        "ssh_keys": a.ssh_key,
+        "wifi": {"ssid": a.wifi_ssid, "password": a.wifi_password},
+    }
+    last = [0]
+    def prog(done, total):
+        pct = int(done * 100 / total) if total else 0
+        if pct != last[0]:
+            last[0] = pct
+            print(f"\r  yazılıyor: %{pct} ({human(done)}/{human(total)})",
+                  end="", flush=True)
+    r = flash(a.iso, a.dev, st, progress=prog, log=lambda m: print("  " + m))
+    print(f"\n  ✓ tamam: {r['cfg']} ({CFG_LABEL})")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        if len(sys.argv) > 1:
+            sys.exit(run_cli(sys.argv[1:]))
+        sys.exit(run_gui())
+    except KeyboardInterrupt:
+        print("\n  iptal edildi")
+        sys.exit(130)
+    except Exception as e:
+        print(f"\n  HATA: {e}", file=sys.stderr)
+        sys.exit(1)
