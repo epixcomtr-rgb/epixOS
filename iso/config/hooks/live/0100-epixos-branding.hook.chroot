@@ -118,14 +118,19 @@ chmod +x /usr/local/bin/epix
 echo "P: GRUB menü metni"
 mkdir -p /etc/default/grub.d
 cat > /etc/default/grub.d/99-epixos.cfg <<'EOF'
-# epixOS: canlı ISO menüsü (kalıcı kurulumda da geçerli)
-GRUB_TIMEOUT=5
+# epixOS: kalıcı kurulum GRUB ayarları
+GRUB_TIMEOUT=10
 GRUB_TIMEOUT_STYLE=menu
 GRUB_DISTRIBUTOR="epixOS"
-# vga=791 = 1024x768x16 VESA framebuffer. B560/Intel Ironlake (8086:0046)
-# paneli bu parametre OLMADAN sinyal üretmiyor: X 1366x768 kurar,
-# gnome-shell çizer, backlight %100 olur ama ekran SİYAH kalır.
-# Pardus 25.0 aynı makinede tam olarak vga=791 kullanıyor. KALDIRMAYIN.
+# vga=791 = 1024x768x16 VESA framebuffer.
+#
+# ZORUNLU: Intel Ironlake (8086:0046, ör. Lenovo B560) panelinde bu parametre
+# olmadan çekirdek LVDS'e sinyal üretmiyor. X 1366x768 kurar, gnome-shell
+# çizer, arka ışık %100 olur — ama ekran SİYAH kalır.
+#
+# DİKKAT: Bu satır grub.d/ içinde olduğu için /etc/default/grub'daki
+# GRUB_CMDLINE_LINUX_DEFAULT değerini EZER. vga=791 buradan çıkarılırsa
+# "update-grub" sonrası ekran siyah kalır (yaşandı). KALDIRMAYIN.
 GRUB_CMDLINE_LINUX_DEFAULT="quiet splash vga=791 console=tty0"
 GRUB_CMDLINE_LINUX=""
 # Menü grafik modunu çekirdeğe devret — mod değişimi paneli bozmasın

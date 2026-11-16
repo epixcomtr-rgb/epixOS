@@ -24,3 +24,7 @@ site/assets/css/tx.css.bak
 # ISO kopyasi sitede yayinlanir, depoya girmez (1.8 GB)
 site/indir/*.iso
 site/indir/*.deb
+
+# APT imza anahtari — gizli, depoya girmez
+.apt-key/
+dist/apt/

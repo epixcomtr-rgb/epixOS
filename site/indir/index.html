@@ -117,17 +117,45 @@
       <h2>Mevcut kurulumu güncelle</h2>
       <p class="lead">
         Zaten epixOS kuruluysa ISO'yu yeniden yazman gerekmez.
-        <code>epixos-base</code> paketi düzeltmeleri <code>apt</code> ile taşır.
+        İki yol var: imzalı APT deposu (önerilen) veya tek seferlik paket kurulumu.
       </p>
     </div>
 
+    <!-- ---- YOL 1: APT deposu ---- -->
+    <div class="dl-up" style="margin-bottom:26px">
+      <h3><span class="dl-badge">Önerilen</span> İmzalı APT deposu</h3>
+      <p>Bir kez kurulur; sonrasında <code>sudo epix-update</code> ile tüm
+         düzeltmeler gelir. Depo GPG ile imzalıdır — paketin gerçekten bizden
+         geldiği kriptografik olarak doğrulanır.</p>
+      <pre><code># 1) imza anahtarı
+curl -fsSL https://os.epix.tr/indir/apt/epixos-archive-keyring.gpg \
+  | sudo tee /usr/share/keyrings/epixos-archive-keyring.gpg &gt;/dev/null
+
+# 2) depo tanımı
+curl -fsSL https://os.epix.tr/indir/apt/epixos.list \
+  | sudo tee /etc/apt/sources.list.d/epixos.list &gt;/dev/null
+
+# 3) güncelle
+sudo apt update
+sudo epix-update</code></pre>
+      <div class="dl-up-note">
+        <span class="ms" aria-hidden="true">verified_user</span>
+        <div>
+          <p><b>Anahtar parmak izi:</b>
+             <code>989C BF3B AAC5 A146 B5E7 3B24 1412 B74F C342 DE15</code></p>
+          <p style="margin-top:8px">Doğrulamak için: <code>gpg --show-keys /usr/share/keyrings/epixos-archive-keyring.gpg</code></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---- YOL 2: tek seferlik .deb ---- -->
     <div class="dl-pkg">
       <div class="dl-pkg-ico"><span class="ms" aria-hidden="true">system_update</span></div>
       <div>
-        <h3>epixos-base 0.1~2026.11</h3>
-        <p>Yardımcı komutlar, <code>vga=791</code> GRUB ayarı, <code>nouveau</code> kara listesi,
-           arka ışık servisi. Kurumsal renkli duvar kağıdı ve simge dahil.
-           13 KB — bağımlılık yok.</p>
+        <h3>epixos-base 0.1~2026.11 <span class="dl-badge" style="text-transform:none">tek seferlik</span></h3>
+        <p>Depoyu kurmak istemiyorsan: yardımcı komutlar, <code>vga=791</code> GRUB ayarı,
+           <code>nouveau</code> kara listesi, arka ışık servisi, kurumsal renkli duvar kağıdı
+           ve simge. 13 KB — bağımlılık yok.</p>
       </div>
       <a class="dl-btn dl-btn--ghost" href="/indir/epixos-base_0.1.202611_all.deb" download>
         <span class="ms" aria-hidden="true">download</span>Paketi indir
@@ -136,17 +164,40 @@
 sudo apt -f install     # eksik bağımlılık varsa</code></pre>
     </div>
 
-    <div class="dl-note">
-      <span class="ms" aria-hidden="true">warning</span>
-      <div>
-        <h4>Paket neyi değiştirir</h4>
-        <p><code>postinst</code> çalışırken <code>/etc/default/grub</code> dosyasına <code>vga=791</code>
-           ekler, <code>epix-backlight.service</code>'i etkinleştirir ve GRUB menüsünü yeniler.
-           Değiştirdiği yapılandırma dosyaları <code>conffiles</code> içinde —
-           kendi düzenlemelerin korunur, fark sorulur.</p>
-        <p>Kaldırmak için: <code>sudo apt remove epixos-base</code></p>
+    <!-- ---- önemli uyarılar ---- -->
+    <div class="dl-up" style="margin-top:26px">
+      <h3>Güncellemeden önce bilmen gerekenler</h3>
+      <div class="dl-up-warn">
+        <span class="ms" aria-hidden="true">dangerous</span>
+        <div>
+          <p><b><code>apt autoremove</code> çalıştırma.</b>
+             Canlı ISO <code>--no-install-recommends</code> ile kurulduğu için apt,
+             GNOME masaüstünün parçalarını «artık gerekli değil» sayıyor.
+             Gerçek çıktı: <code>apache2-bin appstream gir1.2-webkit2-4.1
+             grilo-plugins gvfs-fuse libgtksourceview-4-0</code> … — yani masaüstü.</p>
+        </div>
+      </div>
+      <div class="dl-up-warn">
+        <span class="ms" aria-hidden="true">warning</span>
+        <div>
+          <p><b><code>update-grub</code> sonrası ekranı kontrol et.</b>
+             <code>/etc/default/grub.d/</code> dosyaları <code>/etc/default/grub</code>'u ezer.
+             <code>99-epixos.cfg</code> içinde <code>vga=791</code> yoksa Ironlake panelinde
+             ekran siyah kalır. <code>epix-update</code> bunu her seferinde doğrular ve
+             <code>sudo epix-update check</code> ile durumu görebilirsin.</p>
+        </div>
+      </div>
+      <div class="dl-up-note">
+        <span class="ms" aria-hidden="true">terminal</span>
+        <div>
+          <p><b>Komutlar:</b>
+             <code>sudo epix-update</code> günceller ·
+             <code>epix-update check</code> durum ·
+             <code>sudo epix-update fix-grub</code> GRUB onarır</p>
+        </div>
       </div>
     </div>
+
   </div>
 </section>
 

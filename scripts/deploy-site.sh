@@ -58,6 +58,19 @@ tar czf "$TMP_TAR" -C "$SITE" .
 scp -q -o BatchMode=yes -i "$SSH_KEY" "$TMP_TAR" "$HOST:/tmp/epixos-site.tar.gz"
 rm -f "$TMP_TAR"
 
+# ---------------------------------------------------------------- apt deposu
+# dist/apt -> /indir/apt/. İmzalı depo; epixos.list ve anahtarlık da gider.
+APT_REPO="$ROOT/dist/apt"
+if [[ -d "$APT_REPO" ]]; then
+  c_ok "APT deposu kopyalanıyor (dist/apt -> /indir/apt)"
+  TMP_APT="$(mktemp /tmp/epixos-apt-XXXXXX.tar.gz)"
+  tar czf "$TMP_APT" -C "$APT_REPO" .
+  scp -q -o BatchMode=yes -i "$SSH_KEY" "$TMP_APT" "$HOST:/tmp/epixos-apt.tar.gz"
+  rm -f "$TMP_APT"
+else
+  c_warn "dist/apt yok — APT deposu atlanıyor (önce ./scripts/make-repo.sh)"
+fi
+
 ssh_run "set -e
   sudo mkdir -p '$REMOTE_DIR'
   # eski sürümü yedekle (ilk 5 yedek tutulur)
@@ -66,8 +79,18 @@ ssh_run "set -e
     sudo find /tmp -maxdepth 1 -name 'epixos-site-backup-*.tar.gz' -printf '%T@ %p\n' 2>/dev/null | sort -rn | tail -n +6 | cut -d' ' -f2- | xargs -r sudo rm -f
   fi
   sudo tar xzf /tmp/epixos-site.tar.gz -C '$REMOTE_DIR'
-  sudo chown -R www-data:www-data '$REMOTE_DIR'
   rm -f /tmp/epixos-site.tar.gz
+  # APT deposu
+  if [ -f /tmp/epixos-apt.tar.gz ]; then
+    sudo rm -rf '$REMOTE_DIR/indir/apt'
+    sudo mkdir -p '$REMOTE_DIR/indir/apt'
+    sudo tar xzf /tmp/epixos-apt.tar.gz -C '$REMOTE_DIR/indir/apt'
+    rm -f /tmp/epixos-apt.tar.gz
+    # yanlis yere yazilmis eski kopya (varsa) temizle
+    sudo rm -rf '$REMOTE_DIR/apt'
+    echo '   apt deposu: '\$(sudo find '$REMOTE_DIR/indir/apt' -type f | wc -l)' dosya'
+  fi
+  sudo chown -R www-data:www-data '$REMOTE_DIR'
   echo '   dosyalar: '\$(sudo find '$REMOTE_DIR' -type f | wc -l)"
 
 if [[ "$MODE" == "local" ]]; then
