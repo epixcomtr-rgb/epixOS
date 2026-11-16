@@ -1,0 +1,40 @@
+# epixOS network — WiFi/Ethernet sürücüleri ve ağ yönetimi
+# Kural: kurulum anında TÜM yaygın kablosuz+kablolu firmware gömülü olur ki
+# internet erişimi ilk açılışta garanti olsun (AI anahtarı girmek için şart).
+
+# --- NetworkManager yığını ---
+network-manager
+network-manager-gnome
+wpasupplicant
+wireless-regdb
+iw
+ethtool
+rfkill
+modemmanager
+libnss-mdns
+avahi-daemon
+
+# --- sürücü firmware: kablosuz + kablolu (atheros/qualcomm/intel BT dahil) ---
+linux-firmware
+linux-firmware-intel-wireless
+linux-firmware-realtek
+linux-firmware-broadcom-wireless
+linux-firmware-mediatek
+linux-firmware-misc
+linux-firmware-qualcomm-wireless
+linux-firmware-marvell-wireless
+linux-firmware-intel-misc
+linux-firmware-amd-misc
+
+# --- sürücü firmware: grafik (kurulum ekranı için) ---
+linux-firmware-intel-graphics
+linux-firmware-amd-graphics
+linux-firmware-nvidia-graphics
+firmware-sof-signed
+alsa-ucm-conf
+
+# --- USB/tethering ve teşhis ---
+usbutils
+pciutils
+iproute2
+dnsutils

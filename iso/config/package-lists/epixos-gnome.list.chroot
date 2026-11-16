@@ -1,0 +1,84 @@
+# epixOS GNOME — hafif masaüstü katmanı
+# ÖNEMLİ: 'gnome' veya 'ubuntu-desktop' DEĞİL. gnome-core seçildi.
+# gnome-core, gnome-software + totem + baobab + yelp + tracker-miner-fs getirdiği için
+# 0200 hook'unda bunlar purge edilir; aşağıdaki liste purge sonrası duranları içerir.
+
+# --- GNOME çekirdeği ---
+gnome-core
+gnome-session
+gnome-shell
+gnome-control-center
+gnome-settings-daemon
+gnome-shell-extensions
+gnome-shell-extension-ubuntu-dock
+gnome-tweaks
+gnome-disk-utility
+gnome-system-monitor
+gnome-logs
+gnome-calculator
+gnome-font-viewer
+gnome-characters
+nautilus
+gnome-terminal
+gnome-text-editor
+file-roller
+
+# --- dosya önizleme / belge ---
+eog
+evince
+loupe
+gnome-sushi
+
+# --- tarayıcı: snap'e bağımlı firefox yerine GNOME Web ---
+epiphany-browser
+
+# --- oturum / portal / kabuk altyapısı ---
+gnome-keyring
+libpam-gnome-keyring
+xdg-user-dirs
+xdg-user-dirs-gtk
+xdg-desktop-portal
+xdg-desktop-portal-gnome
+dconf-cli
+dconf-gsettings-backend
+gsettings-desktop-schemas
+glib-networking
+libcanberra-pulse
+
+# --- ses (PipeWire) ---
+pipewire
+pipewire-pulse
+pipewire-alsa
+wireplumber
+alsa-utils
+pavucontrol
+
+# --- X11 SUNUCUSU (KRİTİK) ---
+# gdm3 xserver-xorg'u yalnızca "Recommends" olarak istiyor; build --no-install-recommends
+# ile kurulduğu için X sunucusu hiç gelmiyordu. Sonuç: GDM açılıyor, X bulamıyor,
+# ekran SİYAH kalıyor (ne hata ne ilerleme görünüyor).
+# Eski donanımda Wayland çoğu zaman başlamaz ve GDM X'e düşer -> X zorunlu.
+xserver-xorg
+xserver-xorg-core
+xserver-xorg-input-all
+xserver-xorg-video-all
+xinit
+x11-xserver-utils
+x11-xkb-utils
+
+# --- görüntü / GPU sürücüleri ---
+mesa-utils
+libgl1-mesa-dri
+mesa-vulkan-drivers
+libglx-mesa0
+mesa-va-drivers
+mesa-vdpau-drivers
+
+# --- görünüm ---
+fonts-cantarell
+fonts-ubuntu
+adwaita-icon-theme
+yaru-theme-gtk
+yaru-theme-icon
+yaru-theme-gnome-shell
+sound-theme-freedesktop

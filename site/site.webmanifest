@@ -1,0 +1,17 @@
+{
+  "name": "epixOS — Epix",
+  "short_name": "epixOS",
+  "description": "Hafif, hızlı ve AI ile yönetilen Linux dağıtımı — Epix Software House.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#16404b",
+  "lang": "tr",
+  "dir": "ltr",
+  "icons": [
+    { "src": "/assets/img/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,4 @@
+# dconf sistem geneli kilitleri (kullanıcı değiştiremez)
+# Yalnızca gerçekten sabitlenmesi gerekenler burada tutulur.
+/org/gnome/desktop/interface/color-scheme
+/org/gnome/shell/enabled-extensions

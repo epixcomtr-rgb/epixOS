@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>epixOS — Hafif, hızlı ve AI ile yönetilen Linux | Epix</title>
+<meta name="description" content="epixOS; GNOME masaüstü, 2 GB RAM'de akıcı çalışma, ilk andan açık SSH ve DeepSeek Harness tabanlı AI ajanı ile gelen hafif bir Linux dağıtımı. Epix Software House tarafından geliştiriliyor."/>
+<link rel="canonical" href="https://os.epix.tr/"/>
+
+<meta property="og:type" content="website"/>
+<meta property="og:site_name" content="epixOS — Epix"/>
+<meta property="og:locale" content="tr_TR"/>
+<meta property="og:title" content="epixOS — Hafif, hızlı ve AI ile yönetilen Linux"/>
+<meta property="og:description" content="GNOME masaüstü, 2 GB RAM'de akıcı çalışma, ilk andan açık SSH ve AI ajanı. Epix tarafından geliştirilen hafif Linux dağıtımı."/>
+<meta property="og:url" content="https://os.epix.tr/"/>
+<meta property="og:image" content="https://os.epix.tr/assets/img/og.png"/>
+<meta name="twitter:card" content="summary_large_image"/>
+
+<meta name="theme-color" content="#16404b"/>
+
+<link rel="icon" href="/assets/img/favicon.png" type="image/png"/>
+<link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png"/>
+<link rel="manifest" href="/site.webmanifest"/>
+
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap"/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..600,0..1,0&display=swap"/>
+<link rel="stylesheet" href="/assets/css/tx.css?v=20261002a"/>
+<link rel="stylesheet" href="/assets/css/os.css?v=20261115a"/>
+</head>
+<body>
+
+<header class="site-header" id="siteHeader">
+  <div class="wrap nav">
+    <a class="brand" href="https://epix.tr/" aria-label="Epix ana sayfa">
+      <img src="/assets/img/logo.png" alt="Epix Software House" width="436" height="238"/>
+    </a>
+    <ul class="menu">
+      <li><a href="#ozellikler">Özellikler</a></li>
+      <li><a href="#ajan">AI Ajan</a></li>
+      <li><a href="#hafiflik">Hafiflik</a></li>
+      <li><a href="#sss">SSS</a></li>
+      <li><a href="https://epix.tr/iletisim">İletişim</a></li>
+    </ul>
+    <div class="nav-cta">
+      <a class="btn btn-primary btn-sm" href="https://github.com/epixcomtr-rgb" target="_blank" rel="noopener">
+        <span class="ms" aria-hidden="true">code</span>Kaynak
+      </a>
+    </div>
+    <button class="burger" type="button" aria-label="Menü" aria-expanded="false" id="burger">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<main>
+
+<!-- ============ HERO ============ -->
+<section class="os-hero">
+  <div class="os-hero-glow" aria-hidden="true"></div>
+  <div class="wrap os-hero-grid">
+    <div class="os-hero-copy">
+      <span class="os-eyebrow">
+        <span class="os-live" aria-hidden="true"></span>
+        epixOS 0.1 &middot; 2026.11 &middot; kavak
+      </span>
+      <h1>Kendi işletim sistemin.<br/><span class="os-grad">Hafif, hızlı, AI ile yönetilen.</span></h1>
+      <p class="lead os-lead">
+        GNOME masaüstü, <b>2 GB RAM'de akıcı</b> çalışma, ilk andan itibaren açık SSH,
+        gömülü Wi-Fi sürücüleri ve <b>DeepSeek Harness</b> tabanlı bir AI ajanı.
+        Kurulumdan sonra tüm yönetimi prompt ile yaparsın.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#ozellikler">
+          Özellikleri Gör<span class="ms" aria-hidden="true">arrow_forward</span>
+        </a>
+        <a class="btn btn-outline" href="#sss">Sık Sorulanlar</a>
+      </div>
+      <div class="os-proof">
+        <div><b>&le; 850 MB</b><span>boşta RAM</span></div>
+        <div><b>&le; 15 sn</b><span>açılış süresi</span></div>
+        <div><b>&le; 2.3 GB</b><span>ISO boyutu</span></div>
+        <div><b>2 GB</b><span>hedef donanım</span></div>
+      </div>
+    </div>
+
+    <div class="os-hero-visual">
+      <div class="os-terminal" role="img" aria-label="epixOS terminal çıktısı">
+        <div class="os-term-bar">
+          <span class="os-dot r"></span><span class="os-dot y"></span><span class="os-dot g"></span>
+          <span class="os-term-title">live@epixos</span>
+        </div>
+        <pre class="os-term-body"><span class="c">$</span> hostnamectl
+  <span class="k">İşletim Sistemi:</span> epixOS 0.1 (2026.11)
+  <span class="k">Çekirdek:</span> Linux 7.0.0-epix
+  <span class="k">Masaüstü:</span> GNOME
+
+<span class="c">$</span> epix info
+  epixOS 0.1 (2026.11) — GNOME
+  dil: tr_TR.UTF-8  oturum: ubuntu
+  Mem: 812Mi / 2.0Gi
+
+<span class="c">$</span> epix-ssh status
+  sshd: <span class="ok">aktif</span>  port 22
+  adres: 192.168.1.42/24
+
+<span class="c">$</span> epix-ai key sk-••••••••••••
+  <span class="ok">==></span> anahtar kaydedildi (0600)
+<span class="c">$</span> epix-ai start
+  <span class="ok">==></span> ajan hazır: http://127.0.0.1:3080
+<span class="cursor">_</span></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ÖZELLİKLER ============ -->
+<section class="os-section" id="ozellikler">
+  <div class="wrap">
+    <div class="os-head">
+      <span class="eyebrow">Kurulum anından itibaren hazır</span>
+      <h2>Dört katman, tek amaç: seni durdurmamak</h2>
+      <p class="lead">Her katman, "sistem açıldığında çalışmıyor" sınıfı sorunları ortadan kaldırmak için tasarlandı.</p>
+    </div>
+
+    <div class="os-grid">
+      <article class="os-card">
+        <span class="os-ic"><span class="ms" aria-hidden="true">terminal</span></span>
+        <h3>SSH ilk andan açık</h3>
+        <p><code>sshd</code> önyüklemede başlar. <code>live</code> kullanıcısı, anahtar veya şifre ile bağlan; <code>epix-ssh status</code> ile IP ve parmak izini gör. Uzaktan yönetim için tek komut.</p>
+        <span class="os-tag">epix-ssh</span>
+      </article>
+
+      <article class="os-card">
+        <span class="os-ic"><span class="ms" aria-hidden="true">wifi</span></span>
+        <h3>Wi-Fi ve Ethernet hazır</h3>
+        <p>Intel, Realtek, Broadcom, MediaTek, Qualcomm ve Marvell kablosuz yazılımları gömülü. Kurulum ekranında internet <b>garanti</b> — AI anahtarını girmek için şart.</p>
+        <span class="os-tag">epix-hw net</span>
+      </article>
+
+      <article class="os-card">
+        <span class="os-ic"><span class="ms" aria-hidden="true">health_and_safety</span></span>
+        <h3>Uyumsuz donanımda durmaz</h3>
+        <p>Sürücüsü olmayan aygıt için 90 saniye beklenmez. <code>wait-online</code> ve <code>udev-settle</code> kapalı, zaman aşımları 10 saniye. Sorunlu modülü kalıcı kara listeye al.</p>
+        <span class="os-tag">epix-hw block</span>
+      </article>
+
+      <article class="os-card">
+        <span class="os-ic"><span class="ms" aria-hidden="true">auto_awesome</span></span>
+        <h3>AI ajanı: tüm yönetim prompt ile</h3>
+        <p>DeepSeek Harness tabanlı ajan; dosya okur, komut çalıştırır, plan tutar. <code>epix-ai key</code> ile anahtarını gir, <code>epix-ai start</code> ile başlat, tarayıcıdan yönet.</p>
+        <span class="os-tag">epix-ai</span>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ AI AJAN ============ -->
+<section class="os-section os-alt" id="ajan">
+  <div class="wrap os-split">
+    <div class="os-split-copy">
+      <span class="eyebrow">DeepSeek Harness</span>
+      <h2>Sistemi yöneten bir ajan</h2>
+      <p class="lead">
+        Açık kaynaklı DeepSeek Harness (<code>dsh</code>) üzerine kurulu.
+        Web arayüzü ve CLI aynı ajanı kullanır; model sağlayıcısını sen seçersin.
+      </p>
+      <ul class="os-list">
+        <li><span class="ms" aria-hidden="true">check</span><span><b>Çoklu sağlayıcı:</b> DeepSeek, Anthropic, OpenAI, Kimi, GLM ve OpenAI-uyumlu kendi uç noktan</span></li>
+        <li><span class="ms" aria-hidden="true">check</span><span><b>Gerçek görev:</b> paket kur, servis aç, yapılandırma yaz, hata ayıkla</span></li>
+        <li><span class="ms" aria-hidden="true">check</span><span><b>Güvenli depo:</b> API anahtarı <code>0600</code> izinli kimlik dosyasında, ISO'ya asla gömülmez</span></li>
+        <li><span class="ms" aria-hidden="true">check</span><span><b>Türkçe:</b> arayüz ve komutlar TR öncelikli, İngilizce ikinci dil</span></li>
+      </ul>
+      <div class="os-code-mini">
+        <div class="os-code-line"><span class="c">$</span> epix-ai setup <span class="m"># internet + node + dsh</span></div>
+        <div class="os-code-line"><span class="c">$</span> epix-ai key sk-•••••••• <span class="m"># anahtar (0600)</span></div>
+        <div class="os-code-line"><span class="c">$</span> epix-ai test <span class="m"># API doğrulama</span></div>
+        <div class="os-code-line"><span class="c">$</span> epix-ai start <span class="m"># http://127.0.0.1:3080</span></div>
+      </div>
+    </div>
+    <div class="os-split-visual">
+      <div class="os-agent-card">
+        <div class="os-agent-head">
+          <span class="os-agent-dot"></span>
+          <span>epixOS Agent</span>
+          <span class="os-agent-badge">bağlı</span>
+        </div>
+        <div class="os-agent-body">
+          <div class="os-msg user">Sistemi 2 GB RAM için optimize et ve gereksiz servisleri kapat.</div>
+          <div class="os-msg agent">
+            <span class="os-agent-ic"><span class="ms" aria-hidden="true">smart_toy</span></span>
+            <div>
+              <p>17 servis maskelendi, zram <code>ram/2</code> zstd olarak ayarlandı, journal volatile yapıldı.</p>
+              <p class="os-msg-meta">4 dosya değişti &middot; <span class="ok">başarılı</span></p>
+            </div>
+          </div>
+          <div class="os-msg user">Şimdi SSH anahtarımı ekle.</div>
+          <div class="os-msg agent">
+            <span class="os-agent-ic"><span class="ms" aria-hidden="true">smart_toy</span></span>
+            <div>
+              <p>Anahtar <code>~live/.ssh/authorized_keys</code> dosyasına eklendi, izinler <code>600</code>.</p>
+              <p class="os-msg-meta">epix-ssh key &middot; <span class="ok">başarılı</span></p>
+            </div>
+          </div>
+        </div>
+        <div class="os-agent-input">
+          <span>Bir görev yaz…</span>
+          <span class="ms" aria-hidden="true">send</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ HAFİFLİK ============ -->
+<section class="os-section" id="hafiflik">
+  <div class="wrap">
+    <div class="os-head">
+      <span class="eyebrow">2 GB RAM hedefi</span>
+      <h2>Hafiflik bir iddia değil, ölçüm</h2>
+      <p class="lead">Ubuntu tabanının şişkinliği ayıklanır; her tasarrufun nasıl elde edildiği belgelenir.</p>
+    </div>
+
+    <div class="os-table-wrap">
+      <table class="os-table">
+        <thead>
+          <tr><th>Ölçüt</th><th>epixOS 0.1 hedefi</th><th>Ubuntu 24.04 referans</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Boşta RAM</td><td><b>&le; 850 MB</b></td><td>~1.5 GB</td></tr>
+          <tr><td>ISO boyutu</td><td><b>&le; 2.3 GB</b></td><td>~6.0 GB</td></tr>
+          <tr><td>Kurulu disk</td><td><b>&le; 4.5 GB</b></td><td>~12 GB</td></tr>
+          <tr><td>Açılış süresi</td><td><b>&le; 15 sn</b></td><td>~20 sn</td></tr>
+          <tr><td>Masaüstü</td><td><b>gnome-core</b></td><td>ubuntu-desktop + snap</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="os-how">
+      <div class="os-how-item"><span class="os-how-n">01</span><div><b>gnome-core, ubuntu-desktop değil</b><p>Oyunlar, haritalar, hava durumu ve yazılım merkezi gelmez.</p></div></div>
+      <div class="os-how-item"><span class="os-how-n">02</span><div><b>zram + agresif bellek ayarı</b><p><code>ram/2</code> sıkıştırılmış swap, <code>swappiness=100</code>, disk I/O yok.</p></div></div>
+      <div class="os-how-item"><span class="os-how-n">03</span><div><b>Servis ve indeks temizliği</b><p>snapd, CUPS, bluetooth, packagekit maskeli; tracker indeksleme kapalı.</p></div></div>
+      <div class="os-how-item"><span class="os-how-n">04</span><div><b>Doküman ve dil budama</b><p><code>path-exclude</code> ile belge/man sayfaları atılır; TR+EN dil paketleri kalır.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SSS ============ -->
+<section class="os-section os-alt" id="sss">
+  <div class="wrap os-faq-wrap">
+    <div class="os-head os-head-left">
+      <span class="eyebrow">Sık sorulanlar</span>
+      <h2>Merak edilenler</h2>
+    </div>
+
+    <details class="os-faq" open>
+      <summary>epixOS nedir, neye dayanıyor?<span class="ms" aria-hidden="true">expand_more</span></summary>
+      <p>Ubuntu 24.04 LTS tabanlı, GNOME masaüstü kullanan hafif bir Linux dağıtımı. Çekirdek ve kullanıcı alanı Ubuntu'dan gelir; marka, hafiflik ayarları, sürücü katmanı ve AI ajanı bize ait.</p>
+    </details>
+
+    <details class="os-faq">
+      <summary>Canlı USB'de değişikliklerim kalıcı mı?<span class="ms" aria-hidden="true">expand_more</span></summary>
+      <p>Hayır. Canlı oturum RAM'de çalışır ve yeniden başlatınca sıfırlanır — bu bilinçli bir karar. Kalıcı kullanım için diske kurulum yapılır; böylece <code>apt upgrade</code> çalışır ve tam disk hızı elde edilir.</p>
+    </details>
+
+    <details class="os-faq">
+      <summary>AI anahtarı ISO içinde mi geliyor?<span class="ms" aria-hidden="true">expand_more</span></summary>
+      <p>Hayır, gelmez. ISO'ya gömülü bir anahtar, ISO'yu indiren herkes tarafından okunabilirdi. Kullanıcı ilk açılışta kendi anahtarını girer; anahtar <code>0600</code> izinli kimlik dosyasında saklanır.</p>
+    </details>
+
+    <details class="os-faq">
+      <summary>Hangi donanımda çalışır?<span class="ms" aria-hidden="true">expand_more</span></summary>
+      <p>Hedef alt sınır 2 GB RAM ve 2 çekirdek. Hem UEFI hem BIOS ile önyüklenir. Wi-Fi ve Ethernet sürücüleri büyük ölçüde gömülüdür; sürücüsü olmayan bir aygıt açılışı durdurmaz, <code>epix-hw report</code> ile raporlanır.</p>
+    </details>
+
+    <details class="os-faq">
+      <summary>SSH neden varsayılan açık?<span class="ms" aria-hidden="true">expand_more</span></summary>
+      <p>Kurulum ve uzaktan yönetim için. Canlı oturumda <code>live</code> kullanıcısı şifresiz sudo sahibidir, bu yüzden yalnızca güvendiğin ağlarda kullan. Kalıcı kurulumda <code>live</code> kullanıcısı oluşturulmaz.</p>
+    </details>
+
+    <details class="os-faq">
+      <summary>Ne zaman indirebilirim?<span class="ms" aria-hidden="true">expand_more</span></summary>
+      <p>0.1 sürümü derleme ve test aşamasında. Hazır olduğunda indirme bağlantısı ve sha256 özeti bu sayfaya eklenecek.</p>
+    </details>
+  </div>
+</section>
+
+<!-- ============ CTA ============ -->
+<section class="os-section">
+  <div class="wrap">
+    <div class="os-cta">
+      <div>
+        <h2>Kendi işletim sistemini birlikte kuralım</h2>
+        <p>epixOS'un bir sonraki adımını konuşalım: disk kurulumu, kendi çekirdeğimiz ya da kendi paket depomuz.</p>
+      </div>
+      <div class="os-cta-actions">
+        <a class="btn btn-primary" href="https://epix.tr/iletisim">İletişime Geç<span class="ms" aria-hidden="true">arrow_forward</span></a>
+        <a class="btn btn-white" href="https://github.com/epixcomtr-rgb" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    <div class="f-grid">
+      <div class="f-brand">
+        <img src="/assets/img/logo.png" alt="Epix Software House" width="436" height="238" loading="lazy"/>
+        <p>Web, mobil ve yapay zekâ alanında fikirden lansmana yazılım ortağınız. epixOS, Epix Software House'un açık kaynak işletim sistemi projesidir.</p>
+        <div class="f-social">
+          <a href="https://wa.me/905411193749" target="_blank" rel="noopener" aria-label="WhatsApp"><span class="ms" aria-hidden="true">chat</span></a>
+          <a href="https://epix.tr/iletisim" aria-label="E-posta"><span class="ms" aria-hidden="true">mail</span></a>
+          <a href="https://github.com/epixcomtr-rgb" target="_blank" rel="noopener" aria-label="GitHub"><span class="ms" aria-hidden="true">code</span></a>
+        </div>
+      </div>
+      <div class="f-col">
+        <h4>epixOS</h4>
+        <a href="#ozellikler">Özellikler</a>
+        <a href="#ajan">AI Ajan</a>
+        <a href="#hafiflik">Hafiflik</a>
+        <a href="#sss">SSS</a>
+      </div>
+      <div class="f-col">
+        <h4>Epix</h4>
+        <a href="https://epix.tr/">Ana sayfa</a>
+        <a href="https://epix.tr/iletisim">İletişim</a>
+        <a href="https://hub.epix.tr/giris">Epix Hub</a>
+      </div>
+      <div class="f-col">
+        <h4>Sürüm</h4>
+        <a href="#sss">epixOS 0.1</a>
+        <a href="#sss">2026.11 — kavak</a>
+        <a href="#sss">amd64</a>
+      </div>
+    </div>
+    <div class="f-bottom">
+      <span>&copy; <span id="yil">2026</span> Epix Software House. epixOS açık kaynak bir projedir.</span>
+      <span><a href="https://epix.tr/">epix.tr</a></span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var y = document.getElementById('yil');
+  if (y) y.textContent = new Date().getFullYear();
+
+  var burger = document.getElementById('burger');
+  var menu = document.querySelector('.menu');
+  if (burger && menu) {
+    burger.addEventListener('click', function () {
+      var open = menu.classList.toggle('open');
+      burger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    menu.querySelectorAll('a').forEach(function (a) {
+      a.addEventListener('click', function () {
+        menu.classList.remove('open');
+        burger.setAttribute('aria-expanded', 'false');
+      });
+    });
+  }
+
+  var header = document.getElementById('siteHeader');
+  if (header) {
+    var onScroll = function () {
+      header.classList.toggle('scrolled', window.scrollY > 8);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  }
+})();
+</script>
+</body>
+</html>

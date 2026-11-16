@@ -1,0 +1,48 @@
+# live-build yapılandırması — `lb config` çağrısının tek kaynağı.
+# build.sh config -> bu dosyayı çalıştırır.
+# Ubuntu modu: noble (24.04 LTS) tabanı, amd64.
+
+set -e
+
+# Sürüm tek kaynaktan: ../../VERSION
+_src="$(dirname "$0")/../../VERSION"
+_v() { sed -n "s/^$1=//p" "$_src" 2>/dev/null | head -1; }
+EPIX_VERSION="${EPIX_VERSION:-$(_v EPIX_VERSION)}"; EPIX_VERSION="${EPIX_VERSION:-0.1}"
+EPIX_RELEASE="${EPIX_RELEASE:-$(_v EPIX_RELEASE)}"; EPIX_RELEASE="${EPIX_RELEASE:-2026.11}"
+
+lb config noauto \
+  --mode ubuntu \
+  --distribution noble \
+  --parent-distribution noble \
+  --archive-areas "main restricted universe multiverse" \
+  --parent-archive-areas "main restricted universe multiverse" \
+  --mirror-bootstrap "http://archive.ubuntu.com/ubuntu/" \
+  --mirror-chroot "http://archive.ubuntu.com/ubuntu/" \
+  --mirror-binary "http://archive.ubuntu.com/ubuntu/" \
+  --mirror-chroot-security "http://security.ubuntu.com/ubuntu/" \
+  --mirror-binary-security "http://security.ubuntu.com/ubuntu/" \
+  --updates true \
+  --security true \
+  --backports false \
+  --bootstrap-keyring ubuntu-keyring \
+  --bootloaders "syslinux grub-efi" \
+  --binary-images iso-hybrid \
+  --debian-installer none \
+  --linux-flavours generic \
+  --linux-packages "linux-image linux-headers" \
+  --memtest none \
+  --firmware-binary false \
+  --firmware-chroot false \
+  --iso-application "epixOS ${EPIX_VERSION} (${EPIX_RELEASE})" \
+  --iso-preparer "epixOS Project" \
+  --iso-publisher "epixOS Project — https://example.invalid/epixos" \
+  --iso-volume "EPIXOS_${EPIX_RELEASE//./_}" \
+  --bootappend-live "boot=live components hostname=epixos username=live locales=tr_TR.UTF-8,en_US.UTF-8 keyboard-layouts=tr,us keyboard-variant=,q keyboard-options=grp:alt_shift_toggle timezone=Europe/Istanbul quiet splash" \
+  --compression xz \
+  --compression-level 6 \
+  --bootappend-live-failsafe "boot=live components memtest=none noapic" \
+  --apt-indices false \
+  --apt-source-archives false \
+  --checksums sha256 \
+  --chroot-filesystem squashfs \
+  --image-name "epixOS-${EPIX_VERSION}-${EPIX_RELEASE}-amd64"

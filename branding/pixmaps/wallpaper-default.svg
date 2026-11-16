@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1218"/>
+      <stop offset="0.55" stop-color="#10222b"/>
+      <stop offset="1" stop-color="#0d1a22"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.72" cy="0.28" r="0.55">
+      <stop offset="0" stop-color="#22d3ee" stop-opacity="0.32"/>
+      <stop offset="1" stop-color="#22d3ee" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="0.22" cy="0.82" r="0.5">
+      <stop offset="0" stop-color="#14b8a6" stop-opacity="0.20"/>
+      <stop offset="1" stop-color="#14b8a6" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <rect width="1920" height="1080" fill="url(#glow)"/>
+  <rect width="1920" height="1080" fill="url(#glow2)"/>
+  <g opacity="0.5" stroke="#22d3ee" stroke-width="1" fill="none">
+    <path d="M0 760 Q 480 640 960 720 T 1920 660"/>
+    <path d="M0 820 Q 480 700 960 780 T 1920 720" opacity="0.6"/>
+    <path d="M0 880 Q 480 760 960 840 T 1920 780" opacity="0.35"/>
+  </g>
+  <g transform="translate(960 470)" opacity="0.95">
+    <path d="M0 -150 L150 190 L-150 190 Z" fill="none" stroke="#22d3ee" stroke-width="6" opacity="0.35"/>
+    <path d="M0 -110 L108 160 L-108 160 Z" fill="none" stroke="#67e8f9" stroke-width="4" opacity="0.5"/>
+    <text x="0" y="300" font-family="Ubuntu, DejaVu Sans, sans-serif" font-size="42"
+          font-weight="300" letter-spacing="14" fill="#c9eef5" text-anchor="middle">epixOS</text>
+  </g>
+</svg>

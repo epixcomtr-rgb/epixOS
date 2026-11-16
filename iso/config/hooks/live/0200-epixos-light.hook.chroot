@@ -1,0 +1,205 @@
+#!/bin/sh
+# epixOS — 2 GB RAM hedefi için agresif hafiflik ayarları.
+# Sıra: marka hook'undan (0100) sonra çalışır.
+set -e
+
+TARGET_RAM="${EPIX_TARGET_RAM_MB:-2048}"
+echo "P: epixOS RAM hedefi ${TARGET_RAM} MB — hafiflik katmanı"
+
+# ---------------------------------------------------------------- 1) PAKET PURGE
+# ÖNEMLİ / DİKKAT: gnome-core bir "meta" pakettir; gnome-software, totem, yelp, baobab
+# onun zorunlu bağımlılıklarıdır. Bunları kaldırmak gnome-core'un kendisini de kaldırır.
+# Bu yüzden:
+#   a) masaüstünün çekirdek paketlerini "manual" işaretliyoruz (yanlışlıkla autoremove kurbanı olmasınlar)
+#   b) purge'dan ÖNCE autoremove çalıştırıyoruz
+#   c) purge sonrası ASLA `apt-get autoremove` çalıştırmıyoruz
+#   d) tracker KALDIRILMIYOR (nautilus ona bağımlı) — yalnızca indeksleyici kapatılıyor
+
+MANUAL="gnome-shell gnome-session gnome-control-center gnome-settings-daemon \
+nautilus gnome-terminal gnome-text-editor gdm3 gnome-keyring \
+xdg-desktop-portal-gnome pipewire wireplumber gnome-shell-extension-ubuntu-dock \
+epiphany-browser file-roller eog evince gnome-calculator gnome-disk-utility \
+gnome-system-monitor gnome-logs gnome-tweaks gnome-font-viewer gnome-characters \
+libpam-gnome-keyring gnome-sushi loupe"
+apt-mark manual $MANUAL >/dev/null 2>&1 || true
+
+apt-get -y autoremove --purge >/dev/null 2>&1 || true
+
+PURGE="gnome-software gnome-software-common gnome-software-plugin-snap \
+gnome-software-plugin-flatpak totem totem-common totem-plugins \
+baobab yelp gnome-user-docs gnome-user-docs-tr \
+gnome-user-share gnome-contacts gnome-online-accounts \
+tracker-miner-fs tracker-extract"
+for p in $PURGE; do
+  if dpkg -s "$p" >/dev/null 2>&1; then
+    if apt-get purge -y "$p" >/dev/null 2>&1; then
+      echo "   - kaldırıldı: $p"
+    else
+      echo "   ! kaldırılamadı (bağımlılık): $p"
+    fi
+  fi
+done
+# purge sonrası autoremove YOK — masaüstünü korumak için bilinçli tercih.
+
+# tracker indeksleyici: paket kalıyor (nautilus bağımlılığı), servisi kapanıyor.
+# 2 GB RAM'de dosya indeksleme sürekli CPU+RAM yer.
+for u in tracker-miner-fs-3.service tracker-miner-rss-3.service tracker-extract-3.service \
+         tracker-writeback-3.service tracker-xdg-portal-3.service; do
+  systemctl mask "$u" >/dev/null 2>&1 || true
+done
+mkdir -p /etc/xdg/autostart
+for f in tracker-miner-fs-3 tracker-extract-3 tracker-miner-rss-3; do
+  cat > "/etc/xdg/autostart/$f.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=$f (epixOS tarafından devre dışı)
+Hidden=true
+X-GNOME-Autostart-enabled=false
+EOF
+done
+
+# ---------------------------------------------------------------- 1b) GEREKSİZ BELGE
+cat > /etc/dpkg/dpkg.cfg.d/01-epixos-doc-exclude <<'EOF'
+path-exclude=/usr/share/doc/*
+path-include=/usr/share/doc/*/copyright
+path-exclude=/usr/share/man/??_*
+path-exclude=/usr/share/help/*/??_*
+EOF
+
+# ---------------------------------------------------------------- 2) SERVİSLER
+# Canlı ISO'da gereksiz arka plan yükleri
+for s in snapd.service snapd.socket snapd.seeded.service snapd.apparmor.service \
+         bluetooth.service \
+         cups.service cups-browsed.service cups.socket \
+         packagekit.service packagekit-offline-update.service \
+         whoopsie.service apport.service kerneloops.service \
+         eipp.service ubuntu-report.service popularity-contest.service \
+         fwupd.service fwupd-refresh.service \
+         switcheroo-control.service; do
+  systemctl disable "$s" >/dev/null 2>&1 || true
+  systemctl mask "$s" >/dev/null 2>&1 || true
+done
+
+# systemd: canlı oturumda açılışı yavaşlatan bekleme
+mkdir -p /etc/systemd/system.conf.d
+cat > /etc/systemd/system.conf.d/10-epixos.conf <<'EOF'
+[Manager]
+DefaultTimeoutStartSec=20s
+DefaultTimeoutStopSec=15s
+EOF
+
+# ---------------------------------------------------------------- 3) ZRAM (2 GB için kritik)
+cat > /etc/systemd/zram-generator.conf <<'EOF'
+[zram0]
+zram-size = min(ram / 2, 4096)
+compression-algorithm = zstd
+swap-priority = 100
+fs-type = swap
+EOF
+systemctl enable systemd-zram-setup@zram0.service >/dev/null 2>&1 || true
+
+# ---------------------------------------------------------------- 4) BELLEK / I-O
+cat > /etc/sysctl.d/99-epixos-memory.conf <<'EOF'
+# 2 GB RAM hedefi: agresif ama güvenli
+vm.swappiness = 100
+vm.vfs_cache_pressure = 150
+vm.dirty_background_ratio = 5
+vm.dirty_ratio = 15
+vm.min_free_kbytes = 32768
+vm.overcommit_memory = 0
+vm.page-cluster = 0
+# ağ: düşük gecikme
+net.core.default_qdisc = fq
+net.ipv4.tcp_congestion_control = bbr
+# kullanıcı ad alanları (docker/podman/flatpak için)
+kernel.unprivileged_userns_clone = 1
+kernel.apparmor_restrict_unprivileged_userns = 0
+EOF
+
+# ---------------------------------------------------------------- 5) GRAFİK
+# 2 GB'ta yazılım render'a düşmeyi kolaylaştır; gereksiz efektleri kapat
+mkdir -p /etc/environment.d
+cat > /etc/environment.d/10-epixos.conf <<'EOF'
+# epixOS grafik ortam değişkenleri
+# 1-2 GB RAM'li / eski GPU'lu makinelerde yazılım render'a düşmek için
+# aşağıdaki satırı açın (varsayılan: kapalı, donanım hızlandırma açık):
+#GDK_DEBUG=gl-disable
+#GNOME Shell animasyonları dconf üzerinden kapalı (bkz. 00-epix-defaults)
+EOF
+
+# Mesa: düşük güçlü GPU'larda akıcılık
+mkdir -p /etc/drirc.d
+cat > /etc/drirc.d/00-epixos.conf <<'EOF'
+<driconf>
+  <device driver="iris">
+    <application name="Default" executable="">
+      <option name="force_glsl_extensions_warn" value="false"/>
+    </application>
+  </device>
+</driconf>
+EOF
+
+# ---------------------------------------------------------------- 6) DİL: TR + EN
+cat > /etc/default/locale <<'EOF'
+LANG=tr_TR.UTF-8
+LANGUAGE=tr_TR:tr:en_US:en
+LC_NUMERIC=tr_TR.UTF-8
+LC_TIME=tr_TR.UTF-8
+LC_COLLATE=tr_TR.UTF-8
+LC_MONETARY=tr_TR.UTF-8
+LC_PAPER=tr_TR.UTF-8
+LC_NAME=tr_TR.UTF-8
+LC_ADDRESS=tr_TR.UTF-8
+LC_TELEPHONE=tr_TR.UTF-8
+LC_MEASUREMENT=tr_TR.UTF-8
+LC_IDENTIFICATION=tr_TR.UTF-8
+EOF
+locale-gen tr_TR.UTF-8 en_US.UTF-8 >/dev/null 2>&1 || true
+
+# İngilizce ikinci dil olarak GDM/masaüstünde seçilebilir kalsın
+if [ -d /usr/share/i18n/locales ]; then
+  grep -q '^tr_TR.UTF-8 UTF-8' /etc/locale.gen 2>/dev/null || echo 'tr_TR.UTF-8 UTF-8' >> /etc/locale.gen
+  grep -q '^en_US.UTF-8 UTF-8' /etc/locale.gen 2>/dev/null || echo 'en_US.UTF-8 UTF-8' >> /etc/locale.gen
+  locale-gen >/dev/null 2>&1 || true
+fi
+
+# ---------------------------------------------------------------- 7) KLAVYE
+cat > /etc/default/keyboard <<'EOF'
+XKBMODEL="pc105"
+XKBLAYOUT="tr,us"
+XKBVARIANT=","
+XKBOPTIONS="grp:alt_shift_toggle,lv3:ralt_switch"
+BACKSPACE="guess"
+EOF
+
+# ---------------------------------------------------------------- 8) YAZICI
+# Canlı oturumda yazıcı servisi gerekmez (kullanıcı isterse açar)
+mkdir -p /etc/cups
+cat > /etc/cups/cupsd.conf.epixos-disabled <<'EOF'
+# epixOS: canlı oturumda CUPS varsayılan olarak kapalı.
+# Açmak için: sudo systemctl enable --now cups.service
+EOF
+
+# ---------------------------------------------------------------- 9) ÖLÇÜM ARACI
+cat > /usr/local/bin/epix-memory-check <<'EOF'
+#!/bin/sh
+# epixOS — 2 GB RAM hedefi doğrulama
+echo "=== epixOS bellek raporu ==="
+free -h
+echo
+echo "--- en çok RAM kullanan 10 süreç ---"
+ps -eo rss,comm --sort=-rss | head -11 | awk 'NR==1{print "RSS(KB) SÜREÇ"} NR>1{printf "%7d %s\n",$1,$2}'
+echo
+echo "--- zram durumu ---"
+zramctl 2>/dev/null || echo "zram etkin değil"
+echo
+echo "--- GNOME oturumu ---"
+loginctl list-sessions --no-legend 2>/dev/null | head -5
+EOF
+chmod +x /usr/local/bin/epix-memory-check
+
+# ---------------------------------------------------------------- 10) TEMİZLİK
+apt-get clean
+rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb /tmp/* /var/tmp/*
+
+echo "P: epixOS hafiflik katmanı tamam (hedef ${TARGET_RAM} MB)"

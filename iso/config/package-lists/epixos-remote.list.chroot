@@ -1,0 +1,15 @@
+# epixOS remote — SSH önce açık, uzaktan yönetim hazır
+# Kurulum anından itibaren sshd çalışır; kullanıcı anahtarını ekleyip
+# başka makineden bağlanabilir, AI ajanını uzaktan yönetebilir.
+
+openssh-server
+openssh-client
+rsync
+mosh
+tmux
+screen
+ethtool
+nmap
+netcat-openbsd
+socat
+strace

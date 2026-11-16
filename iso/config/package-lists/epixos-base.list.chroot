@@ -1,0 +1,52 @@
+# epixOS base — canlı oturumun çalışması için zorunlu minimum
+locales
+locales-all
+console-setup
+console-setup-linux
+keyboard-configuration
+tzdata
+
+# --- dil: TR varsayılan, EN ikinci dil ---
+language-pack-tr
+language-pack-gnome-tr
+language-pack-en
+language-pack-gnome-en
+language-selector-common
+
+# --- sistem ---
+sudo
+systemd-sysv
+systemd-timesyncd
+systemd-zram-generator
+dbus
+network-manager
+network-manager-gnome
+wpasupplicant
+rfkill
+iproute2
+iputils-ping
+net-tools
+ca-certificates
+curl
+wget
+rsync
+less
+nano
+file
+pciutils
+usbutils
+lsof
+psmisc
+bash-completion
+
+# --- donanım / çekirdek desteği ---
+linux-firmware
+firmware-sof-signed
+alsa-ucm-conf
+
+# --- yazı tipleri (TR karakterler dahil) ---
+fonts-dejavu-core
+fonts-liberation2
+fonts-noto-core
+fonts-noto-color-emoji
+fonts-noto-cjk

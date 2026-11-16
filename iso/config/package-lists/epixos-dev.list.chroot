@@ -1,0 +1,37 @@
+# epixOS dev — ISO'ya gömülen HAFİF geliştirici seti (~600 MB)
+# Ağır araçlar (docker, node, rust, android) burada DEĞİL -> scripts/install-devtools.sh
+git
+git-lfs
+curl
+wget
+build-essential
+pkg-config
+cmake
+meson
+ninja-build
+autoconf
+automake
+libtool
+python3
+python3-pip
+python3-venv
+python3-dev
+gdb
+strace
+ltrace
+valgrind
+vim
+tmux
+ripgrep
+fd-find
+jq
+tree
+htop
+shellcheck
+clang-format
+unzip
+zip
+xz-utils
+zstd
+man-db
+manpages

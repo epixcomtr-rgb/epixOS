@@ -1,0 +1,14 @@
+# epixOS ai — AI ajan (DeepSeek Harness) altyapısı
+# Node.js sürümü apt'te yok (noble'da 18 var, DSH 24+ istiyor)
+# -> 0300 hook'unda resmî nodejs.org tarball'ı /opt/node24 içine kurulur.
+python3
+python3-venv
+jq
+git
+curl
+wget
+ca-certificates
+zenity
+whiptail
+less
+procps

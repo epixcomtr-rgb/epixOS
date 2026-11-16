@@ -1,0 +1,195 @@
+#!/bin/sh
+# epixOS — 0050: donanım tespiti ve "uyumsuz donanımda duraksamama" katmanı
+#
+# Amaç: kurulum/açılış anında sürücüsü olmayan donanım yüzünden beklemesin.
+#  1) sistemd/udev/NetworkManager "wait-online" gibi bloklayıcıları kapat
+#  2) bilinen sorunlu modülleri kara listeye al (gerekirse kullanıcı açar)
+#  3) açılışta donanım raporu üret: sürücüsüz aygıtlar + eksik firmware
+set -e
+
+echo "P: epixOS donanım katmanı"
+
+# ---------------------------------------------------------------- 1) BLOKLAYICILAR
+# Bunlar internet/donanım yoksa 90 sn'ye kadar bekler — canlı ISO'da istemiyoruz.
+for s in NetworkManager-wait-online.service systemd-networkd-wait-online.service \
+         systemd-udev-settle.service systemd-udev-trigger-settle.service \
+         cloud-init.service cloud-init-local.service cloud-config.service \
+         cloud-final.service e2scrub_reap.service \
+         snapd.service snapd.socket snapd.seeded.service; do
+  systemctl mask "$s" >/dev/null 2>&1 || true
+done
+
+# udev: olay zaman aşımını kısalt (bozuk aygıt 30 sn süründürmesin)
+mkdir -p /etc/udev/udev.conf.d
+cat > /etc/udev/udev.conf.d/50-epixos.conf <<'EOF'
+# epixOS: sürücüsü olmayan aygıt udev'i kilitlemesin
+event_timeout=10
+children_max=32
+EOF
+
+# systemd: aygıt/birim zaman aşımları
+mkdir -p /etc/systemd/system.conf.d
+cat > /etc/systemd/system.conf.d/20-epixos-timeouts.conf <<'EOF'
+[Manager]
+DefaultDeviceTimeoutSec=10s
+DefaultTimeoutStartSec=30s
+DefaultTimeoutStopSec=15s
+EOF
+
+cat > /etc/systemd/system/ethernet-wait-optional.conf <<'EOF'
+# yalnızca belge: ağ birimleri isteğe bağlı
+EOF
+rm -f /etc/systemd/system/ethernet-wait-optional.conf
+
+# ---------------------------------------------------------------- 2) KARA LİSTE
+# Kullanıcı /etc/epixos/hw-blocklist.conf ile ekleyebilir.
+mkdir -p /etc/epixos /etc/modprobe.d
+cat > /etc/epixos/hw-blocklist.conf <<'EOF'
+# epixOS donanım kara listesi — açılışta sürücüsü çöken modüller buraya yazılır.
+# Bir modülü geri açmak için: sudo epix-hw unblock <modül>
+EOF
+cat > /etc/modprobe.d/zz-epixos-hw-blocklist.conf <<'EOF'
+# epixOS: /etc/epixos/hw-blocklist.conf içeriği boot'ta uygulanır (epix-hw-block.service)
+EOF
+
+# ---------------------------------------------------------------- 3) RAPOR ARACI
+cat > /usr/local/bin/epix-hw <<'SH'
+#!/bin/sh
+# epix-hw — donanım teşhisi ve uyumsuz aygıt yönetimi
+set -e
+BLOCK=/etc/epixos/hw-blocklist.conf
+REPORT=/var/log/epixos/hw-report.txt
+
+usage() {
+  cat <<EOF
+epix-hw — epixOS donanım aracı
+  epix-hw report           sürücüsüz aygıtları ve eksik firmware'i listele
+  epix-hw block <modül>    modülü kara listeye al (sonraki açılışta yüklenmez)
+  epix-hw unblock <modül>  kara listeden çıkar
+  epix-hw list             kara listeyi göster
+  epix-hw apply            kara listeyi hemen uygula (modprobe -r)
+  epix-hw net              ağ aygıtları + sürücüleri
+EOF
+}
+
+report() {
+  echo "=== epixOS donanım raporu: $(date -u +%FT%TZ) ==="
+  echo
+  echo "--- Sürücüsü yüklenmemiş aygıtlar (uyumsuz olabilir) ---"
+  lspci -nnk 2>/dev/null | awk '
+    /^[0-9a-f]/ { dev=$0; drv="" }
+    /Kernel driver in use/ { drv=$NF }
+    /^$/ { if (dev!="" && drv=="") print "  " dev; dev="" }
+    END { if (dev!="" && drv=="") print "  " dev }' | head -40
+
+  echo
+  echo "--- Eksik firmware (dmesg) ---"
+  dmesg 2>/dev/null | grep -iE "firmware: failed to load|Direct firmware load for" \
+    | sed 's/^/  /' | tail -25 || echo "  (yok veya dmesg yetkisi gerekli)"
+
+  echo
+  echo "--- Ağ aygıtları ---"
+  ip -br link 2>/dev/null | sed 's/^/  /'
+  echo
+  echo "--- Kablosuz aygıtlar ve sürücüleri ---"
+  for d in /sys/class/net/*; do
+    i=$(basename "$d")
+    [ "$i" = "lo" ] && continue
+    drv=$(basename "$(readlink -f "$d/device/driver" 2>/dev/null)" 2>/dev/null || echo "-")
+    printf '  %-14s sürücü: %s\n' "$i" "$drv"
+  done
+  echo
+  echo "--- Yüklenemeyen modüller (varsa) ---"
+  lsmod >/dev/null 2>&1
+  dmesg 2>/dev/null | grep -iE "module: .*not found|Unknown symbol|taints kernel" \
+    | sed 's/^/  /' | tail -10 || true
+}
+
+case "${1:-report}" in
+  report)
+    report | tee "$REPORT"
+    echo
+    echo "Rapor kaydedildi: $REPORT"
+    echo "Uyumsuz bir aygıt varsa:  sudo epix-hw block <modül>"
+    ;;
+  block)
+    [ -n "${2:-}" ] || { echo "modül adı gerekli" >&2; exit 1; }
+    grep -qx "blacklist $2" "$BLOCK" 2>/dev/null || echo "blacklist $2" >> "$BLOCK"
+    echo "kara listeye eklendi: $2 (sonraki açılışta etkin)"
+    ;;
+  unblock)
+    [ -n "${2:-}" ] || { echo "modül adı gerekli" >&2; exit 1; }
+    sed -i "/^blacklist $2$/d" "$BLOCK" 2>/dev/null || true
+    echo "kara listeden çıkarıldı: $2"
+    ;;
+  list)  grep -v '^#' "$BLOCK" 2>/dev/null | grep . || echo "(boş)" ;;
+  apply)
+    grep -v '^#' "$BLOCK" 2>/dev/null | while read -r _kw mod; do
+      [ -n "${mod:-}" ] || continue
+      modprobe -r "$mod" 2>/dev/null || true
+      echo "kaldırıldı: $mod"
+    done
+    ;;
+  net)
+    echo "--- ip link ---"; ip -br addr 2>/dev/null
+    echo "--- nmcli ---";  nmcli -t dev status 2>/dev/null || true
+    echo "--- rfkill ---"; rfkill list 2>/dev/null || true
+    ;;
+  -h|--help|help) usage ;;
+  *) usage; exit 1 ;;
+esac
+SH
+chmod +x /usr/local/bin/epix-hw
+
+# boot'ta kara listeyi uygulayan servis
+cat > /etc/systemd/system/epix-hw-block.service <<'EOF'
+[Unit]
+Description=epixOS donanım kara listesi
+DefaultDependencies=no
+After=systemd-modules-load.service
+Before=sysinit.target
+ConditionPathExists=/etc/epixos/hw-blocklist.conf
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'grep -v "^#" /etc/epixos/hw-blocklist.conf | while read -r _kw mod; do [ -n "$mod" ] && echo "blacklist $mod"; done > /etc/modprobe.d/zzzz-epixos-runtime-blocklist.conf || true'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target
+EOF
+systemctl enable epix-hw-block.service >/dev/null 2>&1 || true
+
+# jurnal başlangıcında otomatik rapor (hata ayıklama için, gizli)
+cat > /etc/systemd/system/epix-hw-report.service <<'EOF'
+[Unit]
+Description=epixOS donanım raporu (arka plan)
+After=multi-user.target network.target
+ConditionKernelCommandLine=!epix.nohwreport
+
+[Service]
+Type=oneshot
+Nice=19
+IOSchedulingClass=idle
+ExecStart=/usr/local/bin/epix-hw report
+StandardOutput=null
+StandardError=null
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl enable epix-hw-report.service >/dev/null 2>&1 || true
+
+# ---------------------------------------------------------------- 4) AÇILIŞ MESAJI
+cat > /etc/issue <<'EOF'
+epixOS \v \l
+
+  Canlı oturum  : live (şifresiz sudo)
+  SSH           : açık (sshd) — başka makineden: ssh live@<ip>
+  Ağ            : epix-hw net
+  AI ajan       : epix-ai status / epix-ai key (API anahtarı) / epix-ai start
+  Donanım       : epix-hw report  (uyumsuz aygıtı: epix-hw block <modül>)
+
+EOF
+
+echo "P: donanım katmanı tamam (epix-hw)"

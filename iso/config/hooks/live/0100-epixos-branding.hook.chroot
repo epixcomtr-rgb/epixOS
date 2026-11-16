@@ -1,0 +1,129 @@
+#!/bin/sh
+# epixOS — chroot içinde, paketler kurulduktan sonra çalışır.
+set -e
+
+echo "P: epixOS kimliği yazılıyor"
+cat > /etc/os-release <<EOF
+PRETTY_NAME="epixOS ${EPIX_VERSION:-0.1} (${EPIX_RELEASE:-2026.11})"
+NAME="epixOS"
+VERSION_ID="${EPIX_VERSION:-0.1}"
+VERSION="${EPIX_VERSION:-0.1} (${EPIX_RELEASE:-2026.11}) — ${EPIX_CODENAME:-kavak}"
+VERSION_CODENAME=${EPIX_CODENAME:-kavak}
+ID=epixos
+ID_LIKE=ubuntu debian
+HOME_URL="https://example.invalid/epixos"
+DOCUMENTATION_URL="https://example.invalid/epixos/docs"
+SUPPORT_URL="https://example.invalid/epixos/support"
+BUG_REPORT_URL="https://example.invalid/epixos/issues"
+PRIVACY_POLICY_URL="https://example.invalid/epixos/privacy"
+UBUNTU_CODENAME=noble
+LOGO=epixos-logo
+EOF
+cp /etc/os-release /etc/epixos-release
+[ -f /etc/lsb-release ] && cat > /etc/lsb-release <<EOF
+DISTRIB_ID=epixOS
+DISTRIB_RELEASE=${EPIX_VERSION:-0.1}
+DISTRIB_CODENAME=${EPIX_CODENAME:-kavak}
+DISTRIB_DESCRIPTION="epixOS ${EPIX_VERSION:-0.1} (${EPIX_RELEASE:-2026.11})"
+EOF
+
+echo "P: kullanıcı ve grup ayarları"
+# Canlı oturum kullanıcısı: live (şifresiz sudo)
+if ! id live >/dev/null 2>&1; then
+  useradd -m -s /bin/bash -c "epixOS Live User" live
+  passwd -d live >/dev/null 2>&1 || true
+fi
+groupadd -f sudo
+for g in sudo adm cdrom dip plugdev lpadmin sambashare audio video netdev bluetooth; do
+  getent group "$g" >/dev/null 2>&1 && usermod -aG "$g" live || true
+done
+echo 'live ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/live-epixos
+chmod 440 /etc/sudoers.d/live-epixos
+
+# Not: servis kapatma, paket purge ve dil/klavye ayarları 0200-epixos-light hook'unda.
+
+echo "P: dconf varsayılanları"
+command -v dconf >/dev/null 2>&1 && dconf update || true
+
+echo "P: GDM oturum açma ekranı"
+if [ -d /etc/gdm3 ]; then
+  cat > /etc/gdm3/greeter.dconf-defaults <<'EOF'
+[org/gnome/login-screen]
+logo='/usr/share/epixos/logo.svg'
+banner-message-enable=true
+banner-message-text='epixOS — canlı oturum. Kullanıcı: live (şifre gerekmez)'
+EOF
+  sed -i 's/^#\?AutomaticLoginEnable.*/AutomaticLoginEnable=true/' /etc/gdm3/custom.conf 2>/dev/null || true
+  sed -i 's/^#\?AutomaticLogin=.*/AutomaticLogin=live/' /etc/gdm3/custom.conf 2>/dev/null || true
+fi
+
+echo "P: canlı kullanıcı dili (TR) ve oturumu"
+mkdir -p /var/lib/AccountsService/users
+cat > /var/lib/AccountsService/users/live <<'EOF'
+[User]
+Session=gnome
+XSession=gnome
+Icon=/usr/share/epixos/logo.svg
+SystemAccount=false
+Language=tr_TR.UTF-8
+FormatsLocale=tr_TR.UTF-8
+EOF
+chown root:root /var/lib/AccountsService/users/live
+chmod 600 /var/lib/AccountsService/users/live
+# ilk açılış sihirbazı canlı oturumda istenmez (hafiflik + hız)
+apt-get purge -y gnome-initial-setup >/dev/null 2>&1 || true
+mkdir -p /etc/xdg/autostart
+cat > /etc/xdg/autostart/epixos-welcome.desktop <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=epixOS Hoş Geldiniz
+Comment=epixOS canlı oturumu bilgisi
+Exec=gnome-terminal -- bash -lc "clear; echo \"epixOS \$(head -1 /usr/share/epixos/version) — canlı oturum\"; echo; epix info; echo; echo 'Sudo şifresi gerekmez (kullanıcı: live).'; echo 'epix update | epix install <paket> | epix-memory-check'; sleep 25"
+Icon=epixos-logo
+Terminal=false
+X-GNOME-Autostart-enabled=true
+OnlyShowIn=GNOME;
+EOF
+
+echo "P: marka dosyaları"
+mkdir -p /usr/share/epixos
+printf '%s\n' "${EPIX_VERSION:-0.1} (${EPIX_RELEASE:-2026.11})" > /usr/share/epixos/version
+cat > /usr/share/epixos/build-info <<EOF
+version=${EPIX_VERSION:-0.1}
+release=${EPIX_RELEASE:-2026.11}
+codename=${EPIX_CODENAME:-kavak}
+target_ram_mb=${EPIX_TARGET_RAM_MB:-2048}
+EOF
+
+echo "P: epix komutu"
+cat > /usr/local/bin/epix <<'EOF'
+#!/bin/sh
+# epix — epixOS paket/sistem yardımcısı (apt sarmalayıcı)
+V=$(head -1 /usr/share/epixos/version 2>/dev/null || echo "?")
+case "$1" in
+  update)  sudo apt update && sudo apt upgrade -y ;;
+  install) shift; sudo apt install -y "$@" ;;
+  remove)  shift; sudo apt remove -y "$@" ;;
+  search)  shift; apt search "$@" ;;
+  info)    echo "epixOS $V — çekirdek $(uname -r) — GNOME"
+           echo "dil: ${LANG:-?}  oturum: ${XDG_CURRENT_DESKTOP:-?}"
+           free -h | sed -n 2p
+           zramctl 2>/dev/null | sed -n '1,2p' ;;
+  repo)    grep -rh "^deb " /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null ;;
+  *)       echo "kullanım: epix {update|install|remove|search|info|repo}" ;;
+esac
+EOF
+chmod +x /usr/local/bin/epix
+
+echo "P: GRUB menü metni"
+mkdir -p /etc/default/grub.d
+cat > /etc/default/grub.d/99-epixos.cfg <<'EOF'
+# epixOS: canlı ISO menüsü (kalıcı kurulumda da geçerli)
+GRUB_TIMEOUT=5
+GRUB_TIMEOUT_STYLE=menu
+GRUB_DISTRIBUTOR="epixOS"
+GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"
+GRUB_CMDLINE_LINUX=""
+EOF
+
+echo "P: epixOS hook tamam"

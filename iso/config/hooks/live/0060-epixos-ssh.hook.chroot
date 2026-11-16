@@ -1,0 +1,159 @@
+#!/bin/sh
+# epixOS — 0060: SSH ilk andan itibaren açık
+#
+# Hedef: canlı oturum açılır açılmaz sshd çalışıyor olsun; kullanıcı
+# başka makineden bağlanıp AI ajanını yönetebilsin.
+set -e
+
+echo "P: epixOS SSH katmanı"
+
+# ---------------------------------------------------------------- 1) SERVİS
+systemctl enable ssh.service >/dev/null 2>&1 || systemctl enable sshd.service >/dev/null 2>&1 || true
+systemctl unmask ssh.service sshd.service >/dev/null 2>&1 || true
+# NOT: Burada `DefaultDependencies=no` KULLANILMAZ. ssh.service zaten
+# network.target sonrasıdır; DefaultDependencies=no yapmak requires/after
+# ilişkilerini bozup servisin açılışta başarısız olmasına yol açıyor.
+# Ağ gelmese de açılışın durmaması için ayrı bir engel yok: ssh sadece dinler.
+mkdir -p /etc/systemd/system/ssh.service.d
+cat > /etc/systemd/system/ssh.service.d/10-epixos.conf <<'EOF'
+[Unit]
+# epixOS: canlı oturumda hemen başla, ağ yoksa da sistem beklemesin
+After=network.target
+[Service]
+# anahtar yoksa ilk başlatmada üret (canlı ortam)
+ExecStartPre=-/usr/bin/ssh-keygen -A
+# /run tmpfs olduğu için ayrıcalık ayrım dizini her açılışta gerekir
+ExecStartPre=-/usr/bin/mkdir -p /run/sshd
+EOF
+
+# ---------------------------------------------------------------- 2) SSH ANAHTARLARI
+# Host anahtarları ilk açılışta üretilir; ISO'ya gömülmez (güvenlik).
+# Ama canlı oturumda gecikme olmasın diye servis açılışta üretir:
+mkdir -p /etc/ssh
+cat > /etc/ssh/sshd_config.d/00-epixos.conf <<'EOF'
+# epixOS — canlı oturum SSH varsayılanları
+Port 22
+# live kullanıcısı şifresiz (canlı ISO); anahtar da kabul edilir
+PasswordAuthentication yes
+PermitRootLogin no
+PubkeyAuthentication yes
+KbdInteractiveAuthentication no
+UsePAM yes
+X11Forwarding no
+PrintMotd no
+AcceptEnv LANG LC_* EPIX_*
+ClientAliveInterval 60
+ClientAliveCountMax 3
+MaxAuthTries 6
+# canlı oturumda hız için DNS ters çözümlemesi kapalı
+UseDNS no
+# sadece live ve sonradan eklenecek kullanıcılar
+AllowUsers live
+EOF
+
+# Host anahtarları: canlı ISO'da ilk açılışta üretilir (ISO'ya gömülmez).
+# Ama chroot'ta da üretmeyi deniyoruz; başarısız olursa servis ExecStartPre ile üretir.
+mkdir -p /etc/ssh
+if [ ! -f /etc/ssh/ssh_host_ed25519_key ]; then
+  if ! ssh-keygen -A 2>/tmp/sshkeygen.err; then
+    echo "   ! ssh-keygen -A başarısız (servis açılışta üretecek):"
+    sed 's/^/     /' /tmp/sshkeygen.err 2>/dev/null || true
+    # doğrudan üret (ssh-keygen -A bazı chroot'larda sessizce atlar)
+    for t in ed25519 ecdsa rsa; do
+      out="/etc/ssh/ssh_host_${t}_key"
+      [ -f "$out" ] && continue
+      ssh-keygen -q -t "$t" -N "" -f "$out" -C "epixos@live" 2>/dev/null || true
+    done
+  fi
+fi
+chmod 600 /etc/ssh/ssh_host_*_key 2>/dev/null || true
+chmod 644 /etc/ssh/ssh_host_*_key.pub 2>/dev/null || true
+ls -1 /etc/ssh/ssh_host_*_key 2>/dev/null | sed 's/^/   host anahtarı: /' || echo "   (host anahtarı yok — açılışta üretilecek)"
+
+# ---------------------------------------------------------------- 3) MOTD
+cat > /etc/motd <<'EOF'
+
+  ╔══════════════════════════════════════════════════════════╗
+  ║  epixOS — canlı oturum                                   ║
+  ╚══════════════════════════════════════════════════════════╝
+
+  AI ajan (DeepSeek Harness) ile tüm yönetim:
+     epix-ai key sk-...     API anahtarını gir
+     epix-ai start          ajanı başlat (web arayüzü)
+     epix-ai status         durum
+
+  Donanım sorunu varsa açılış DURMAZ:
+     epix-hw report         sürücüsüz aygıtları göster
+     epix-hw block <modül>  sorunlu modülü kara listeye al
+
+  Ağ:   epix-hw net        |   nmcli device wifi list
+  Yardım: epix help
+
+EOF
+
+# ---------------------------------------------------------------- 4) SSH İLK KURULUM BETİĞİ
+# Kullanıcı kendi anahtarını eklesin: ssh-copy-id live@<ip>
+cat > /usr/local/bin/epix-ssh <<'SH'
+#!/bin/sh
+# epix-ssh — epixOS SSH yardımcısı
+set -e
+case "${1:-status}" in
+  status)
+    echo "=== sshd durumu ==="
+    systemctl is-active ssh 2>/dev/null || systemctl is-active sshd 2>/dev/null || echo "kapalı"
+    systemctl is-enabled ssh 2>/dev/null || true
+    echo
+    echo "=== dinlenen port ==="
+    ss -tlnp 2>/dev/null | grep -E ':22\s' || echo "port 22 dinlenmiyor"
+    echo
+    echo "=== adresler ==="
+    ip -br addr show scope global 2>/dev/null | awk '{print "  "$1"  "$3}'
+    echo
+    echo "=== host anahtarları (SHA256 parmak izi) ==="
+    for k in /etc/ssh/ssh_host_*_key.pub; do
+      [ -f "$k" ] && ssh-keygen -lf "$k" 2>/dev/null
+    done
+    echo
+    echo "Bağlanmak için: ssh live@<ip>   (canlı oturumda şifre boş)"
+    ;;
+  key)
+    # kullanıcının açık anahtarını ekle
+    [ -n "${2:-}" ] || { echo "kullanım: epix-ssh key 'ssh-ed25519 AAAA... user@host'" >&2; exit 1; }
+    mkdir -p /home/live/.ssh
+    echo "$2" >> /home/live/.ssh/authorized_keys
+    chmod 700 /home/live/.ssh
+    chmod 600 /home/live/.ssh/authorized_keys
+    chown -R live:live /home/live/.ssh
+    echo "anahtar eklendi. test: ssh live@$(hostname -I 2>/dev/null | awk '{print $1}')"
+    ;;
+  enable)  systemctl unmask ssh sshd 2>/dev/null || true; systemctl enable --now ssh 2>/dev/null || systemctl enable --now sshd; echo "SSH açık" ;;
+  disable) systemctl disable --now ssh 2>/dev/null || systemctl disable --now sshd; echo "SSH kapalı" ;;
+  ip)      ip -br addr show scope global | awk '{print $1"  "$3}' ;;
+  *)       echo "kullanım: epix-ssh {status|key '<açık anahtar>'|enable|disable|ip}" >&2; exit 1 ;;
+esac
+SH
+chmod +x /usr/local/bin/epix-ssh
+
+# canlı kullanıcı için .ssh hazırlığı
+if [ -d /home/live ]; then
+  mkdir -p /home/live/.ssh
+  chmod 700 /home/live/.ssh
+  touch /home/live/.ssh/authorized_keys
+  chmod 600 /home/live/.ssh/authorized_keys
+  chown -R live:live /home/live/.ssh 2>/dev/null || true
+fi
+
+# ---------------------------------------------------------------- 5) İLK AÇILIŞ TAŞIYICI
+cat > /etc/xdg/autostart/epixos-ssh-notice.desktop <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=epixOS SSH Bilgisi
+Comment=SSH adresini ve AI ajan durumunu göster
+Exec=gnome-terminal -- bash -lc "clear; epix-ssh status; echo; echo '--- AI ajan ---'; epix-ai status 2>/dev/null || true; sleep 20"
+Icon=utilities-terminal
+Terminal=false
+X-GNOME-Autostart-enabled=false
+OnlyShowIn=GNOME;
+EOF
+
+echo "P: SSH katmanı tamam (epix-ssh)"

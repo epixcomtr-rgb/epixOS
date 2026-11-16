@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=epixOS Hakkında
+Comment=epixOS sürüm bilgisi
+Exec=gnome-terminal -- bash -lc "fastfetch 2>/dev/null || epix info; echo; echo 'epixOS — GNOME + hafif taban'; read -rp 'kapatmak için Enter '"
+Icon=epixos-logo
+Terminal=false
+Categories=System;
