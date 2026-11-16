@@ -35,4 +35,40 @@ command -v unsquashfs >/dev/null && {
 }
 
 echo
+# ── vga=791 / GRUB parametre denetimi (B560 Ironlake siyah ekran dersi) ─────
+# vga=791 yoksa Intel Ironlake paneli sinyal üretmez: X/GNOME çalışır ama
+# ekran siyah kalır. Bu denetim o hatanın sessizce geri gelmesini engeller.
+echo "==> vga=791 parametresi"
+tmpg="$(mktemp -d)"
+xorriso -osirrox on -indev "$ISO" -extract /boot/grub/grub.cfg "$tmpg/grub.cfg" 2>/dev/null || true
+if [[ -f "$tmpg/grub.cfg" ]]; then
+  vga_n=$(grep -c 'vga=791' "$tmpg/grub.cfg" 2>/dev/null || echo 0)
+  if [[ "$vga_n" -ge 1 ]]; then
+    echo "    ✓ vga=791 bulundu ($vga_n girdi)"
+  else
+    echo "    ✗ UYARI: vga=791 YOK — Intel Ironlake'te ekran siyah kalabilir" >&2
+  fi
+  nomodeset_n=$(grep -c '^ *linux.*nomodeset' "$tmpg/grub.cfg" 2>/dev/null || echo 0)
+  [[ "$nomodeset_n" -gt 0 ]] && echo "    ℹ $nomodeset_n girdide nomodeset var (yalnızca Uyumluluk Modu olmalı)"
+  gfxpl=$(grep -c 'gfxpayload=keep' "$tmpg/grub.cfg" 2>/dev/null || echo 0)
+  [[ "$gfxpl" -ge 1 ]] && echo "    ✓ gfxpayload=keep var" || echo "    ℹ gfxpayload=keep yok"
+else
+  echo "    ℹ /boot/grub/grub.cfg ISO içinde bulunamadı"
+fi
+rm -rf "$tmpg"
+
+# casper.conf BUILD_SYSTEM — yanlışsa /cow format 'overlay' hatası verir
+echo
+echo "==> casper.conf"
+tmpc="$(mktemp -d)"
+xorriso -osirrox on -indev "$ISO" -extract /casper/initrd.img "$tmpc/initrd.img" 2>/dev/null || true
+if [[ -f "$tmpc/initrd.img" ]]; then
+  echo "    initrd: $(stat -c %s "$tmpc/initrd.img" 2>/dev/null) bayt"
+  if lsinitramfs "$tmpc/initrd.img" 2>/dev/null | grep -q 'conf/conf.d/casper'; then
+    echo "    ✓ casper yapılandırması initrd içinde"
+  fi
+fi
+rm -rf "$tmpc"
+
+echo
 echo "==> hatırlatma: gerçek test için  ./build.sh run   (EPIX_RAM=2048)"

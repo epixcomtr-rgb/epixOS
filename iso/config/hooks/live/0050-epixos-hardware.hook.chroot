@@ -52,6 +52,39 @@ cat > /etc/modprobe.d/zz-epixos-hw-blocklist.conf <<'EOF'
 # epixOS: /etc/epixos/hw-blocklist.conf içeriği boot'ta uygulanır (epix-hw-block.service)
 EOF
 
+# ---------------------------------------------------------------- 2b) GPU
+# NVIDIA Optimus makinelerde (ör. B560: Intel Ironlake + GeForce 310M) dahili
+# LVDS panel Intel'e bağlıdır. nouveau yüklenince X'te hayalet "VGA-1-2" çıkışı
+# oluşup masaüstü 2390x768'e genişliyor; 2 GB RAM'li makinede ayrıca bellek yer.
+# Panel Intel'de kalsın. Geri açmak: sudo epix-hw unblock nouveau
+cat > /etc/modprobe.d/zz-epixos-gpu-blacklist.conf <<'EOF'
+# epixOS — NVIDIA/nouveau kapalı (dahili LVDS panel Intel'de)
+blacklist nouveau
+blacklist nvidia
+blacklist nvidiafb
+blacklist rivafb
+options nouveau modeset=0
+EOF
+
+# ---------------------------------------------------------------- 2c) FBCON
+# systemd-backlight, açılışta kaydedilmiş parlaklığı geri yükler. Bozuk bir
+# değer ekranı karartabildiği için epixOS'ta parlaklık %100 başlar;
+# kullanıcı istediğinde düşürür.
+cat > /etc/systemd/system/epix-backlight.service <<'EOF'
+[Unit]
+Description=epixOS arka isik acilis degeri
+After=systemd-backlight@backlight:acpi_video0.service
+Wants=systemd-backlight@backlight:acpi_video0.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'for d in /sys/class/backlight/*/; do [ -e "$d/brightness" ] || continue; m=$(cat "$d/max_brightness" 2>/dev/null) || continue; [ -n "$m" ] && echo "$m" > "$d/brightness" 2>/dev/null || true; done'
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 # ---------------------------------------------------------------- 3) RAPOR ARACI
 cat > /usr/local/bin/epix-hw <<'SH'
 #!/bin/sh
@@ -159,6 +192,15 @@ RemainAfterExit=yes
 WantedBy=sysinit.target
 EOF
 systemctl enable epix-hw-block.service >/dev/null 2>&1 || true
+systemctl enable epix-backlight.service >/dev/null 2>&1 || true
+
+# B560/Ironlake kanıtı: parlaklık %100 olsa bile panel siyah kalabiliyor;
+# sorun parlaklık değil, kernel framebuffer modu. Bu yüzden vga=791
+# /etc/default/grub + GRUB menüsünde sabitlenir (build-iso.sh da aynısını yazar).
+mkdir -p /etc/initramfs-tools/conf.d
+cat > /etc/initramfs-tools/conf.d/epixos-gpu.conf <<'EOF'
+# epixOS — NVIDIA sürücüsü initramfs'e girmesin (Intel LVDS panel)
+EOF
 
 # jurnal başlangıcında otomatik rapor (hata ayıklama için, gizli)
 cat > /etc/systemd/system/epix-hw-report.service <<'EOF'
