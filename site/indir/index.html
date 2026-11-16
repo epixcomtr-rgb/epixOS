@@ -201,6 +201,74 @@ sudo apt -f install     # eksik bağımlılık varsa</code></pre>
   </div>
 </section>
 
+<!-- ============ EPIX-IMAGER ============ -->
+<section class="os-section" id="imager">
+  <div class="wrap">
+    <div class="os-head">
+      <h2>epixOS Imager — ayarlarla birlikte yaz</h2>
+      <p class="lead">
+        Raspberry Pi Imager'ın epixOS karşılığı. USB'yi yazarken kullanıcı adı,
+        şifre, Wi-Fi ve SSH'ı önceden ayarlarsın; <b>ilk açılışta hazır gelir</b>.
+        Ekransız (headless) kullanım için bu yolu seç.
+      </p>
+    </div>
+
+    <div class="dl-up" style="margin-bottom:26px">
+      <h3><span class="dl-badge">Önerilen</span> Ayarları önceden göm</h3>
+      <p>Tek komutla kur ve çalıştır:</p>
+      <pre><code># bağımlılıklar (Ubuntu'da genelde kurulu)
+sudo apt install python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 openssl
+
+# imager'ı al
+curl -fsSLo epix-imager https://raw.githubusercontent.com/epixcomtr-rgb/epixOS/main/tools/epix-imager/epix-imager
+chmod +x epix-imager
+./epix-imager</code></pre>
+      <p style="margin-top:4px">Arayüzde sırayla: <b>ISO seç</b> → <b>USB seç</b> →
+         kullanıcı/şifre/Wi-Fi/SSH → <b>USB'ye yaz</b>.</p>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px">
+      <div class="dl-note" style="margin-top:0">
+        <span class="ms" aria-hidden="true">wifi</span>
+        <div>
+          <h4>Wi-Fi otomatik bağlanır</h4>
+          <p>Ağ adı ve şifre USB'ye gömülür. Açılışta NetworkManager bağlanır —
+             ekran veya klavye gerekmez.</p>
+        </div>
+      </div>
+      <div class="dl-note" style="margin-top:0">
+        <span class="ms" aria-hidden="true">terminal</span>
+        <div>
+          <h4>SSH ilk saniyeden açık</h4>
+          <p><code>sshd</code> masaüstünden önce başlar (sysinit.target).
+             <code>ssh kullanıcı@ip</code> ile bağlanırsın.</p>
+        </div>
+      </div>
+      <div class="dl-note" style="margin-top:0">
+        <span class="ms" aria-hidden="true">verified_user</span>
+        <div>
+          <h4>Önyükleme bozulmaz</h4>
+          <p>Ayarlar bölüm tablosunun <b>dışına</b> yazılır; GPT/MBR'ye
+             dokunulmaz. Yazma sonrası geri okuma ile doğrulanır.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="dl-note" style="margin-top:26px">
+      <span class="ms" aria-hidden="true">info</span>
+      <div>
+        <h4>Komut satırı (otomasyon)</h4>
+        <p><code>sudo ./epix-imager --iso epixOS-0.1-2026.11-amd64.iso \</code><br/>
+           <code>&nbsp;&nbsp;--dev /dev/sdb --user epix --password '…' \</code><br/>
+           <code>&nbsp;&nbsp;--hostname epixos --ssh \</code><br/>
+           <code>&nbsp;&nbsp;--wifi-ssid 'AG_ADI' --wifi-password '…'</code></p>
+        <p style="margin-top:9px">Kaynak ve tasarım notları:
+           <a href="https://github.com/epixcomtr-rgb/epixOS/tree/main/tools/epix-imager">github.com/epixcomtr-rgb/epixOS/tools/epix-imager</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ============ USB'YE YAZMA ============ -->
 <section class="os-section os-alt" id="usb">
   <div class="wrap">
