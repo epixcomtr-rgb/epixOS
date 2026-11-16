@@ -44,7 +44,7 @@ Yani bir ISO = **önyükleme yükleyicisi + çekirdek + initramfs + sıkıştır
 | **live-build** | Debian/Ubuntu tabanlı canlı ISO üretir, paket listesi + hook mantığı | ✅ **Seçilen** |
 | debootstrap / mmdebstrap | Boş bir kök dosya sistemi kurar (live-build bunu kullanır) | ✅ dolaylı |
 | archiso | Arch için aynı iş | ❌ (taban Ubuntu) |
-| Calamares | Grafik kurulum sihirbazı (ISO → disk) | ✅ Aşama 5 |
+| Calamares | Grafik kurulum sihirbazı (ISO → disk) | ✅ var (3.3.5) |
 | xorriso / squashfs-tools | ISO kalıbı ve sıkıştırılmış fs | ✅ dolaylı |
 | QEMU | ISO'yu disk yazmadan test etme | ✅ test |
 
@@ -57,7 +57,7 @@ Yani bir ISO = **önyükleme yükleyicisi + çekirdek + initramfs + sıkıştır
 | **2** | GNOME masaüstü + hafif varsayılanlar + marka | `epixOS-0.2.iso` | |
 | **3** | Kendi çekirdeğimiz: özel `.config`, `epixOS-kernel` paketi | `epixOS-kernel_*.deb` | |
 | **4** | Kendi APT depomuz + imzalama, `epixOS-archive-keyring` | `repo.epixos` | |
-| **5** | Disk kurulumu (Calamares) — **kalıcı kullanım buradan** | kurulabilir ISO | |
+| **5** | Disk kurulumu (Calamares) — **kalıcı kullanım buradan** | ✅ kurulabilir ISO | |
 | **6** | Sürüm, imajlar, güncelleme kanalı | `epixOS 1.0` | |
 
 ## 5. Sürüm kimliği

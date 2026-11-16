@@ -69,8 +69,19 @@ Windows'ta [Rufus](https://rufus.ie/): bölüm şeması **MBR**, hedef **BIOS**,
 ### 3. Aç ve kur
 
 USB'den önyükle (`F12`), GRUB menüsünde **epixOS — Canlı Oturum** seç.
-Canlı oturumda hiçbir şey diske yazılmaz. Beğenirsen masaüstündeki
-**epixOS Kur** simgesiyle diske kur.
+Canlı oturumda hiçbir şey diske yazılmaz.
+
+Beğenirsen uygulama menüsünden **epixOS Kur**'u aç (ya da terminalde
+`epix-install`). Calamares kurulum asistanı disk bölümlendirme, kullanıcı
+hesabı, dil/klavye ve GRUB kurulumunu yapar. Kurulum sırasında:
+
+- **Dil ve klavye:** Türkçe seçili gelir
+- **Disk:** mevcut bölümleri koruyabilir ya da silip kurabilirsin
+- **GRUB:** UEFI ve BIOS ikisi de desteklenir
+
+> **Ironlake uyarısı:** Kurulum sonrası `vga=791` çekirdek parametresi
+> `grub.cfg`'ye yazılır. Bu adım atlanırsa eski Intel ekran kartlarında
+> ekran siyah kalır. Koruma `epix-grub-guard` modülünde; atlanamaz.
 
 ## Depodan derleme
 

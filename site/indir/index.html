@@ -346,13 +346,18 @@ chmod +x epix-imager
       </li>
       <li>
         <strong>Diske kur</strong>
-        <p>Masaüstündeki <b>epixOS Kur</b> simgesini çalıştır. Hedef disk olarak
-           kendi diskinizi seçin; <b>bölümleri silmeden önce yedek alın</b>.</p>
+        <p>Uygulama menüsünden (veya arama kutusuna <b>epixOS Kur</b> yazarak)
+           Calamares kurulum asistanını aç. Terminalden <code>epix-install</code>
+           da aynı işi yapar. Sihirbaz disk bölümlendirme, kullanıcı hesabı,
+           dil/klavye ve GRUB kurulumunu adım adım yapar.</p>
+        <p><b>UEFI ve BIOS</b> ikisi de desteklenir. Mevcut bölümleri koruyabilir
+           ya da silip temiz kurulum yapabilirsin — silmeden önce yedek al.</p>
       </li>
       <li>
         <strong>İlk açılış</strong>
-        <p>Kurulumdan sonra kullanıcı adı, şifre ve dil ayarları sorulur.
-           SSH ilk açılıştan itibaren çalışır.</p>
+        <p>Kurulumda girdiğin kullanıcı adı ve şifreyle oturum açılır.
+           SSH açık gelir; <code>vga=791</code> GRUB'a yazıldığı için eski Intel
+           ekran kartlarında (Ironlake) ekran siyah kalmaz.</p>
       </li>
     </ol>
 
