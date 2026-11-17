@@ -1,4 +1,8 @@
 # epixOS — kaynak ve çıktı ayrımı
+# Derleme çalışma alanı: chroot'lar + ISO ağacı (5+ GB)
+# Takibe alınmamalı — `git add -A` bunu eklemeye çalışıp izin
+# hatalarıyla patlıyordu (chroot içinde root'a ait dizinler var).
+build/
 dist/
 iso/binary/
 iso/chroot/

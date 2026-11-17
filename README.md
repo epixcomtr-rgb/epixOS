@@ -141,6 +141,51 @@ epixOS bunu GRUB'da ve `/etc/default/grub.d/99-epixos.cfg` içinde gönderir.
 `scripts/verify-iso.sh` bu parametrenin ISO'da olduğunu denetler.
 Ayrıntılı kanıt zinciri: [docs/05-KARARLAR.md](docs/05-KARARLAR.md).
 
+## Tema ve modüller (APT deposu)
+
+ISO'yu **yeniden derlemeden** tema ve modül güncellemesi alabilirsin.
+Depo imzalıdır; paketlerin gerçekten epixOS'tan geldiği kriptografik
+olarak doğrulanır.
+
+**Tek seferlik kurulum:**
+
+```bash
+curl -fsSL https://os.epix.tr/indir/apt/epixos-archive-keyring.gpg \
+  | sudo tee /usr/share/keyrings/epixos-archive-keyring.gpg >/dev/null
+curl -fsSL https://os.epix.tr/indir/apt/epixos.list \
+  | sudo tee /etc/apt/sources.list.d/epixos.list >/dev/null
+sudo apt update
+```
+
+**Tema:**
+
+```bash
+sudo apt install epixos-tema
+epix-tema --liste        # kurulu duvar kağıtları + etkin tema
+epix-tema                # temayı yeniden uygula
+```
+
+Tema paketi şunları içerir: GTK3/GTK4 renk katmanı, GNOME Shell vurguları,
+üç duvar kağıdı (koyu / açık / sade), dconf drop-in ve `epix-tema` komutu.
+Renkler gerçek logodan örneklendi: lime `#e2ff5e`, navy `#16404b`,
+deep `#0e2a31`.
+
+> **Not:** GNOME Shell'in `gnome-shell.css` dosyasını kullanması için
+> *User Themes* uzantısı gerekir. Uzantı yokken marka vurgusu GTK
+> tarafında (uygulamalar, düğmeler, seçim) görünür — bu bilinçli bir
+> tercih, uzantıyı zorla kurmak kırılganlık getirir.
+
+**Paket üretimi (geliştirici):**
+
+```bash
+sudo ./scripts/make-theme-deb.sh   # -> dist/epixos-tema_<sürüm>_all.deb
+sudo ./scripts/make-repo.sh        # depo indeksini yenile
+./scripts/deploy-site.sh           # os.epix.tr/indir/apt/ altına yayınla
+```
+
+Paket `postinst`'i `dconf update` çağırır ve `/etc/dconf/profile/user`
+yoksa oluşturur — ikisi olmadan yazılan ayarlar hiç okunmaz.
+
 ## Mevcut kurulumu güncelleme
 
 ISO'yu yeniden kurmadan düzeltmeleri almak için `epixos-base` paketi:
