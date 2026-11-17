@@ -47,8 +47,22 @@ ClientAliveCountMax 3
 MaxAuthTries 6
 # canlı oturumda hız için DNS ters çözümlemesi kapalı
 UseDNS no
-# sadece live ve sonradan eklenecek kullanıcılar
-AllowUsers live
+# AllowUsers KULLANILMAZ.
+#
+# NEDEN: ilk sürümde "AllowUsers live" vardı ve yorumu "sonradan
+# eklenecek kullanıcılar" diyordu — ama AllowUsers bir BEYAZ LİSTE'dir,
+# listelenmeyen HER kullanıcıyı reddeder. epix-imager/epix-setup ile
+# oluşturulan kullanıcı (ör. epix) bu yüzden SSH'a HİÇ giremiyordu.
+# Belirti: kullanıcı var, parola doğru (chpasswd -e ile doğrulandı,
+# `passwd -S` -> P), sshd çalışıyor, port dinliyor — ama
+# "Permission denied, please try again."
+# Bu satır QEMU'da 8 ISO derlemesi boyunca yanlış yönlendirdi.
+#
+# Erişim kontrolü zaten şununla sağlanır:
+#   - PermitRootLogin no        (root giremez)
+#   - parolası olmayan hesap yok (live hesabı canlı oturumda kalır)
+# Gerekirse AllowUsers/AllowGroups sonradan EKLENEBİLİR; varsayılan
+# olarak tüm yerel kullanıcılar girebilir.
 EOF
 
 # Host anahtarları: canlı ISO'da ilk açılışta üretilir (ISO'ya gömülmez).

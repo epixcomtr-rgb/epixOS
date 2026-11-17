@@ -62,11 +62,14 @@ echo "==> vga=791 parametresi"
 tmpg="$(mktemp -d)"
 xorriso -osirrox on -indev "$ISO" -extract /boot/grub/grub.cfg "$tmpg/grub.cfg" 2>/dev/null || true
 if [[ -f "$tmpg/grub.cfg" ]]; then
-  vga_n=$(grep -c 'vga=791' "$tmpg/grub.cfg" 2>/dev/null || echo 0)
-  if [[ "$vga_n" -ge 1 ]]; then
-    echo "    ✓ vga=791 bulundu ($vga_n girdi)"
+  vga_n=$(grep -c 'vga=791' "$tmpg/grub.cfg" 2>/dev/null || true); vga_n=${vga_n:-0}
+  # HEADLESS'ta vga=791 BEKLENMEZ: X/GNOME yok, framebuffer kurulmuyor.
+  if [[ "${EPIX_VARIANT:-desktop}" == "headless" ]]; then
+    echo "    - vga=791 denetimi headless'ta uygulanmaz (grafik yok)"
+  elif [[ "$vga_n" -ge 1 ]]; then
+    echo "    OK vga=791 bulundu ($vga_n girdi)"
   else
-    echo "    ✗ UYARI: vga=791 YOK — Intel Ironlake'te ekran siyah kalabilir" >&2
+    echo "    UYARI: vga=791 YOK — Intel Ironlake'te ekran siyah kalabilir" >&2
   fi
   nomodeset_n=$(grep -c '^ *linux.*nomodeset' "$tmpg/grub.cfg" 2>/dev/null || echo 0)
   [[ "$nomodeset_n" -gt 0 ]] && echo "    ℹ $nomodeset_n girdide nomodeset var (yalnızca Uyumluluk Modu olmalı)"

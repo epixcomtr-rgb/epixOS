@@ -134,24 +134,17 @@ Categories=System;
 Keywords=install;kurulum;epixos;
 EOF
 chmod 644 /usr/share/applications/epix-install.desktop
-# GNOME masaüstünde de görünsün (canlı oturumda simge olarak)
-mkdir -p /etc/skel/Desktop /home/live/Desktop 2>/dev/null || true
-for d in /etc/skel/Desktop /home/live/Desktop; do
-  [ -d "$d" ] || continue
-  cp -f /usr/share/applications/epix-install.desktop "$d/epix-install.desktop"
-  chmod 755 "$d/epix-install.desktop"
-done
+# Keşfedilebilirlik: GNOME masaüstü simgeleri için EKLENTİ GEREKİR
+# (gnome-shell-extension-desktop-icons-ng). Bu imajda o eklenti YOK;
+# dolayısıyla /home/live/Desktop/*.desktop dosyası GÖRÜNMEZ.
+# Bu yüzden kurulum aracını dock'a sabitliyoruz
+# (dconf 00-epix-defaults -> favorite-apps) ve uygulama menüsüne
+# bırakıyoruz. Masaüstüne kopyalamak yanıltıcı olurdu.
 if id live >/dev/null 2>&1; then
-  chown -R live:live /home/live/Desktop 2>/dev/null || true
-  # GNOME "güvenilmeyen başlatıcı" uyarısını kapat
-  su -s /bin/sh live -c \
-    "gio set /home/live/Desktop/epix-install.desktop metadata::trusted true" \
-    >/dev/null 2>&1 || true
-  su -s /bin/sh live -c \
-    "dbus-launch gsettings set org.gnome.shell remembered-applications 2>/dev/null" \
-    >/dev/null 2>&1 || true
+  mkdir -p /home/live/.config 2>/dev/null || true
+  chown live:live /home/live/.config 2>/dev/null || true
 fi
-echo "  ✓ epix-install + masaüstü kısayolu"
+echo "  ✓ epix-install: uygulama menüsü + dock"
 
 # ---------------------------------------------------------------- apt-mark
 # KRİTİK: `apt autoremove` bu paketleri kaldırmaya çalışabilir

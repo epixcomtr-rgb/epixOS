@@ -1,0 +1,241 @@
+#!/bin/sh
+# epixOS headless — ekransız açılış, SSH ve Wi-Fi hazır
+#
+# SADECE headless varyantında çalışır (dosya adı .hook.chroot.headless).
+#
+# HEDEF: Raspberry Pi 4 benzeri kullanım. İmajı yaz, tak, aç; makine
+# ağa bağlanır ve SSH ile girilir. Ekran/klavye yok.
+#
+# ÜÇ KATMAN:
+#   1) Açılış hedefi multi-user (grafik yok) — GDM hiç başlamaz
+#   2) SSH ve NetworkManager açılışta etkin
+#   3) epix-imager yapılandırma gömdüyse epix-setup uygular
+#      (kullanıcı, parola, hostname, Wi-Fi) — bu masaüstünde de var
+set -e
+
+echo "P: headless varyant yapılandırılıyor"
+
+VARIANT="${EPIX_VARIANT:-headless}"
+[ "$VARIANT" = "headless" ] || { echo "  ! bu hook yalnız headless içindir, atlanıyor"; exit 0; }
+
+# ---------------------------------------------------------------- 1) grafik yok
+# Kalamares/GNOME paketleri bu varyantta kurulmuyor; yine de bir şey
+# çekerse diye açılış hedefini metne sabitliyoruz.
+if [ -e /etc/systemd/system/default.target ]; then
+  rm -f /etc/systemd/system/default.target
+fi
+ln -sf /lib/systemd/system/multi-user.target /etc/systemd/system/default.target
+echo "  ✓ varsayılan hedef: multi-user.target (grafik yok)"
+
+# GDM/lightdm/sddm varsa devre dışı bırak (paket sızıntısına karşı)
+for dm in gdm3 lightdm sddm; do
+  if [ -e "/lib/systemd/system/$dm.service" ] || [ -e "/usr/lib/systemd/system/$dm.service" ]; then
+    systemctl disable "$dm.service" >/dev/null 2>&1 || true
+    echo "  ✓ $dm devre dışı"
+  fi
+done
+
+# ---------------------------------------------------------------- 2) SSH
+mkdir -p /etc/ssh/sshd_config.d
+cat > /etc/ssh/sshd_config.d/10-epixos-headless.conf <<'EOF'
+# epixOS headless: ilk açılışta parola ile giriş açık.
+# Anahtar kurulduktan sonra parolayı kapatmak için:
+#   sudo sed -i 's/^PasswordAuthentication yes/PasswordAuthentication no/' \
+#        /etc/ssh/sshd_config.d/10-epixos-headless.conf
+#   sudo systemctl reload ssh
+Port 22
+PermitRootLogin no
+PasswordAuthentication yes
+PubkeyAuthentication yes
+X11Forwarding no
+ClientAliveInterval 60
+EOF
+chmod 644 /etc/ssh/sshd_config.d/10-epixos-headless.conf
+
+# Host anahtarları ilk açılışta üretilmesin (gecikme); image'da üret.
+ssh-keygen -A >/dev/null 2>&1 || true
+
+# ── SSH: SOCKET ACTIVATION'I KAPAT ────────────────────────────────────
+# Ubuntu 24.04'te ssh.socket varsayılan olarak AÇIK. Soket modunda sshd
+# talep geldiğinde `-i` (inetd) modunda başlar ve bu modda
+# sshd_config.d/ altındaki bazı dosyalar beklenen şekilde uygulanmaz;
+# ayrıca epix-setup sysinit'te yazdığı yapılandırma çalışan soket
+# tarafından okunmuş olur. Sonuç (QEMU'da ölçüldü): kullanıcı oluşuyor,
+# parola doğru, sshd çalışıyor — ama parola girişi REDDEDİLİYOR.
+# Klasik servis moduna dönüyoruz: soket kapalı, ssh.service açık.
+systemctl disable --now ssh.socket 2>/dev/null || true
+systemctl mask ssh.socket 2>/dev/null || true
+
+systemctl enable ssh.service >/dev/null 2>&1 || systemctl enable sshd.service >/dev/null 2>&1 || true
+# enable başarısız olursa doğrudan sembolik bağ kur
+if [ ! -e /etc/systemd/system/multi-user.target.wants/ssh.service ]; then
+  mkdir -p /etc/systemd/system/multi-user.target.wants
+  ln -sf /lib/systemd/system/ssh.service \
+         /etc/systemd/system/multi-user.target.wants/ssh.service 2>/dev/null || true
+fi
+# sockets.target.wants içindeki ssh.socket bağını KALDIR (mask yeterli
+# olmayabilir: enable edilmiş bağ dosyası kalır)
+rm -f /etc/systemd/system/sockets.target.wants/ssh.socket 2>/dev/null || true
+echo "  ✓ SSH: klasik servis modu (socket activation KAPALI)"
+
+# ── SERİ KONSOL GETTY ─────────────────────────────────────────────────
+# Headless makinede tek fiziksel çıkış seri konsol (Pi4, sunucular).
+# getty@ttyS0 açılmazsa kullanıcı hiçbir şekilde giriş yapamaz
+# (QEMU'da ölçüldü: kernel console=ttyS0 ile yazıyor ama login istemi yok).
+if [ -e /lib/systemd/system/serial-getty@.service ]; then
+  systemctl enable serial-getty@ttyS0.service >/dev/null 2>&1 || true
+  echo "  ✓ seri getty: ttyS0"
+fi
+
+# ---------------------------------------------------------------- 3) ağ
+#
+# KRİTİK: Ubuntu'da netplan + systemd-networkd varsayılan. /etc/netplan/
+# boşsa (bizim durumumuz) systemd-networkd hiçbir arayüzü yönetmez VE
+# NetworkManager'ın da devralmasını engelleyebilir. Sonuç (QEMU'da
+# doğrulandı): ssh.service çalışıyor, arayüz enp0s2 tanınıyor, ama
+# IPv4 adresi ATANMIYOR -> SSH ulaşılamaz, makine ağda görünmez.
+#
+# Çözüm:
+#   1) systemd-networkd ve netplan'ı devre dışı bırak (NM tek yetkili)
+#   2) NetworkManager'ı tüm aygıtların sahibi yap
+#   3) netplan için "NetworkManager tarafından yönetilir" yedeği bırak
+systemctl disable --now systemd-networkd.service 2>/dev/null || true
+systemctl disable --now systemd-networkd.socket 2>/dev/null || true
+systemctl disable --now systemd-networkd-wait-online.service 2>/dev/null || true
+systemctl mask systemd-networkd.service systemd-networkd.socket 2>/dev/null || true
+
+# NetworkManager tüm aygıtları yönetsin (unmanaged kalmasın)
+mkdir -p /etc/NetworkManager/conf.d
+cat > /etc/NetworkManager/conf.d/10-epixos-managed.conf <<'EOF'
+# epixOS headless: tüm aygıtlar NetworkManager tarafından yönetilir.
+# Bu dosya olmadan netplan/systemd-networkd kalıntısı arayüzü
+# "unmanaged" bırakabiliyor ve IP atanmıyor (QEMU'da yaşandı).
+[device]
+managed=true
+[main]
+plugins=ifupdown,keyfile
+[ifupdown]
+managed=true
+[connectivity]
+enabled=false
+EOF
+chmod 644 /etc/NetworkManager/conf.d/10-epixos-managed.conf
+
+# netplan: NM'nin sahip olduğunu bildir (varsa)
+mkdir -p /etc/netplan
+if [ -z "$(ls -A /etc/netplan 2>/dev/null)" ]; then
+  cat > /etc/netplan/01-epixos-nm.yaml <<'EOF'
+# epixOS: ağ yönetimi NetworkManager'a bırakıldı.
+# netplan dosyası yalnızca systemd-networkd kalıntısını etkisizleştirmek
+# için var; renderer açıkça NetworkManager.
+network:
+  version: 2
+  renderer: NetworkManager
+EOF
+  chmod 600 /etc/netplan/01-epixos-nm.yaml
+  echo "  ✓ netplan: renderer=NetworkManager"
+fi
+
+systemctl enable NetworkManager.service >/dev/null 2>&1 || true
+systemctl enable NetworkManager-dispatcher.service >/dev/null 2>&1 || true
+
+# Wi-Fi radyo kapalı gelebilir; açılışta aç
+cat > /etc/systemd/system/epix-wifi-unblock.service <<'EOF'
+[Unit]
+Description=epixOS Wi-Fi radyosunu ac
+Before=NetworkManager.service
+After=systemd-udev-settle.service
+ConditionPathExists=/usr/sbin/rfkill
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/rfkill unblock wifi
+TimeoutStartSec=20
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl enable epix-wifi-unblock.service >/dev/null 2>&1 || true
+echo "  ✓ NetworkManager + Wi-Fi unblock etkin"
+
+# Bağlantı gelene kadar bekleme göstergesi (konsolda ne olduğu anlaşılsın)
+cat > /etc/systemd/system/epix-net-status.service <<'EOF'
+[Unit]
+Description=epixOS ag durumu raporu
+After=NetworkManager.service network-online.target
+Wants=network-online.target
+ConditionKernelCommandLine=!epix.quiet
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'sleep 5; ip -4 -o addr show scope global | awk "{print \\"  epixOS ag: \\" \\$2 \\" \\" \\$4}"; nmcli -t -f NAME,STATE con show --active 2>/dev/null | sed "s/^/  baglanti: /" || true'
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl enable epix-net-status.service >/dev/null 2>&1 || true
+
+# ---------------------------------------------------------------- 4) konsol ipucu
+# Ekransız makinede tek geri bildirim konsol. İlk açılışta ne yapılacağını yaz.
+cat > /etc/issue <<'EOF'
+
+  epixOS headless (SSH + Wi-Fi)
+
+  Bu makineye ag uzerinden baglan:
+      ssh KULLANICI@<ip>
+
+  IP ogrenmek icin:   ip -4 addr show scope global
+  Wi-Fi taramak:      nmcli device wifi list
+  Wi-Fi baglanmak:    sudo nmcli device wifi connect "AG" password "SIFRE"
+  Ag durumu:          nmcli connection show --active
+
+EOF
+
+# MOTD: her girişte kısa durum
+mkdir -p /etc/update-motd.d
+cat > /etc/update-motd.d/50-epixos <<'EOF'
+#!/bin/sh
+echo
+echo "  epixOS $(cat /usr/share/epixos/version 2>/dev/null | head -1)"
+ip -4 -o addr show scope global 2>/dev/null | awk '{print "  ag: "$2" "$4}'
+echo
+EOF
+chmod 755 /etc/update-motd.d/50-epixos
+
+# ---------------------------------------------------------------- 5) epix-setup
+# USB'ye gömülü yapılandırma (kullanıcı, parola, Wi-Fi) varsa uygula.
+# Servis dosyası desktop hook'unda kuruluyor; burada yoksa kendimiz kurarız.
+if [ -x /usr/local/bin/epix-setup ] && [ ! -f /etc/systemd/system/epix-setup.service ]; then
+  cat > /etc/systemd/system/epix-setup.service <<'EOF'
+[Unit]
+Description=epixOS USB yapilandirmasini uygula (epix-imager)
+After=NetworkManager.service local-fs.target
+Wants=NetworkManager.service
+Before=ssh.service
+ConditionPathExists=/usr/local/bin/epix-setup
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=-/usr/local/bin/epix-setup
+TimeoutStartSec=90
+
+[Install]
+WantedBy=sysinit.target
+EOF
+  chmod 644 /etc/systemd/system/epix-setup.service
+  systemctl enable epix-setup.service >/dev/null 2>&1 || true
+  echo "  ✓ epix-setup.service kuruldu"
+else
+  echo "  ✓ epix-setup servisi mevcut"
+fi
+
+# ---------------------------------------------------------------- 6) ZRAM
+# 2 GB RAM'li makinelerde takas sıkıştırması bellek baskısını azaltır.
+if [ -f /etc/systemd/zram-generator.conf ]; then
+  sed -i 's/^#\?zram-size.*/zram-size = min(ram \/ 2, 1024)/' /etc/systemd/zram-generator.conf 2>/dev/null || true
+fi
+
+echo "  ✓ headless hazır: ekran yok, SSH + Wi-Fi acik"

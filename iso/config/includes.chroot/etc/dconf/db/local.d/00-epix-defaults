@@ -80,7 +80,7 @@ edge-tiling=true
 check-alive-timeout=uint32 20000
 
 [org/gnome/shell]
-favorite-apps=['org.gnome.Nautilus.desktop','org.gnome.Terminal.desktop','org.gnome.Epiphany.desktop','org.gnome.TextEditor.desktop']
+favorite-apps=['epix-install.desktop','org.gnome.Nautilus.desktop','org.gnome.Terminal.desktop','org.gnome.Epiphany.desktop','org.gnome.TextEditor.desktop']
 enabled-extensions=['ubuntu-dock@ubuntu.com']
 disable-user-extensions=false
 welcome-dialog-last-shown-version='99.0'

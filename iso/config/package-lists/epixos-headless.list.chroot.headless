@@ -1,0 +1,65 @@
+# epixOS headless — SSH + Wi-Fi, ekran yok
+#
+# HEDEF: Raspberry Pi 4 gibi kullanım. İmajı yaz, tak, aç; Wi-Fi'ye
+# bağlanır ve SSH açık gelir. Ekran, klavye, fare gerekmez.
+#
+# TASARIM KARARI — en küçük imaj:
+#   Masaüstü paket listesi (epixos-gnome, epixos-installer, epixos-dev)
+#   bu varyantta YÜKLENMEZ. GNOME, Calamares, tarayıcı, AI ajanı yok.
+#   Beklenen boyut ~500-600 MB (masaüstü 1.9 GB).
+#
+#   Gerekli her şey sonradan apt ile eklenebilir:
+#       sudo apt install epixos-tema
+#       sudo apt install epixos-modul-...
+#
+# Wi-Fi firmware'i KRİTİK: eksikse kart tanınır ama ağ taranamaz.
+# Bu yüzden satıcı bazlı firmware paketleri ayrı ayrı listelenir.
+
+#### ---- AĞ ----
+network-manager
+wpasupplicant
+wireless-regdb
+iw
+ethtool
+rfkill
+modemmanager
+libnss-mdns
+avahi-daemon
+
+# Wi-Fi firmware (satıcı bazlı; tek bir "firmware" paketi yetmez)
+# linux-firmware tam paketi ~600 MB ve ekran kartı firmware'i getirir.
+# Headless'ta GPU sürücüsü yok; yalnız ağ firmware'i gerekli.
+linux-firmware-intel-wireless
+linux-firmware-realtek
+linux-firmware-broadcom-wireless
+linux-firmware-mediatek
+linux-firmware-qualcomm-wireless
+linux-firmware-marvell-wireless
+linux-firmware-misc
+
+#### ---- UZAK ERİŞİM ----
+openssh-server
+openssh-client
+rsync
+tmux
+screen
+netcat-openbsd
+socat
+dnsutils
+nmap
+ethtool
+usbutils
+pciutils
+
+#### ---- KONSOL / TANI ----
+htop
+lsof
+strace
+psmisc
+file
+less
+nano
+bash-completion
+ca-certificates
+curl
+wget

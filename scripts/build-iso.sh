@@ -14,7 +14,24 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ISO_CFG="$ROOT/iso/config"
-BUILD="$ROOT/build"
+
+# ---------------------------------------------------------------- VARYANT
+# İki imaj türü var ve CHROOT'LARI AYRIDIR:
+#   desktop  (varsayılan) GNOME + Calamares, ~1.9 GB
+#   headless SSH + Wi-Fi, ekran yok, ~500 MB hedef
+#
+# NEDEN AYRI CHROOT: aynı chroot'a iki farklı paket kümesi kurulamaz.
+# Paylaşılsaydı headless derlemesi çalışan masaüstü chroot'unu GNOME'lu
+# bırakır (ya da tersi), imajlar birbirine karışırdı.
+#
+# Varyant seçilmezse eski davranış korunur (desktop, build/chroot).
+VARIANT="${EPIX_VARIANT:-desktop}"
+case "$VARIANT" in
+  desktop|headless) ;;
+  *) echo "Bilinmeyen EPIX_VARIANT: $VARIANT (desktop|headless)" >&2; exit 2 ;;
+esac
+
+BUILD="$ROOT/build/$VARIANT"
 CHROOT="$BUILD/chroot"
 ISOTREE="$BUILD/isottree"
 DIST="$ROOT/dist"
@@ -27,9 +44,23 @@ CODENAME="$(_get EPIX_CODENAME)"; CODENAME="${CODENAME:-kavak}"
 TARGET_RAM="$(_get EPIX_TARGET_RAM_MB)"; TARGET_RAM="${TARGET_RAM:-2048}"
 ARCH="${EPIX_ARCH:-amd64}"
 SUITE="${EPIX_SUITE:-noble}"
-MIRROR="${EPIX_MIRROR:-http://archive.ubuntu.com/ubuntu}"
+# ── MIRROR SEÇİMİ ─────────────────────────────────────────────────────
+# ÖLÇÜM (bu makinede, 3 paketlik test):
+#   archive.ubuntu.com      -> 8304 ms  (~22 kat yavaş)
+#   tr.archive.ubuntu.com   ->  382 ms
+# Ayrıca archive.ubuntu.com'da IPv6 AAAA kaydı dönüyor ama rota yok;
+# wget her pakette ~2 sn IPv6 denemesinde bekliyor. İkisi birleşince
+# debootstrap 40+ pakette dakikalarca takılı görünüyordu.
+# Türkiye aynası hem hızlı hem IPv4 sorununu büyük ölçüde azaltıyor.
+# Farklı bir ülkeden derlerken EPIX_MIRROR ile geçebilirsin.
+MIRROR="${EPIX_MIRROR:-http://tr.archive.ubuntu.com/ubuntu}"
 SECMIRROR="${EPIX_SECMIRROR:-http://security.ubuntu.com/ubuntu}"
-ISO_NAME="epixOS-${VERSION}-${RELEASE}-${ARCH}.iso"
+if [[ "$VARIANT" == "desktop" ]]; then
+  ISO_NAME="epixOS-${VERSION}-${RELEASE}-${ARCH}.iso"
+else
+  ISO_NAME="epixOS-${VERSION}-${RELEASE}-${ARCH}-headless.iso"
+fi
+LOG="$DIST/build-${VARIANT}.log"
 LOG="$DIST/build.log"
 
 c_ok()   { printf '\033[1;32m==>\033[0m %s\n' "$*" | tee -a "$LOG"; }
@@ -147,6 +178,15 @@ else
   rm -rf "$CHROOT"
   mkdir -p "$CHROOT"
   c_ok "temel sistem indiriliyor (~2-3 dk, çubuk sabit kalabilir — debootstrap sessiz çalışır)"
+  # ── IPv4 ZORUNLU ────────────────────────────────────────────────────
+  # NEDEN: bu makinede IPv6 rotası yok ama DNS AAAA kaydı dönüyor.
+  # wget önce IPv6'yı deniyor ("Makinaya ağ üzerinden yol yok"), ~2 sn
+  # bekleyip IPv4'e düşüyor. Paket başına bu gecikme birikince
+  # debootstrap dakikalarca takılı görünüyor (ölçüldü: 23 pakette 6+ dk
+  # hiç ilerleme yok, chroot boyutu sabit kalıyor).
+  WGETRC_BAK=""
+  [ -f /etc/wgetrc ] && { WGETRC_BAK="$(mktemp)"; cp -a /etc/wgetrc "$WGETRC_BAK"; }
+  grep -q '^inet4_only' /etc/wgetrc 2>/dev/null || echo 'inet4_only = on' >> /etc/wgetrc
   debootstrap --arch="$ARCH" --variant=minbase \
     --components=main,restricted,universe,multiverse \
     --include=ca-certificates,apt-utils,gnupg,locales \
@@ -167,6 +207,12 @@ else
     c_err "debootstrap başarısız:"; tail -20 "$BUILD/debootstrap.log" >&2; exit 1
   fi
   touch "$CHROOT/.bootstrap-done"
+  # geçici IPv4 ayarını geri al
+  if [ -n "${WGETRC_BAK:-}" ] && [ -f "$WGETRC_BAK" ]; then
+    cp -a "$WGETRC_BAK" /etc/wgetrc; rm -f "$WGETRC_BAK"
+  else
+    sed -i '/^inet4_only = on$/d' /etc/wgetrc 2>/dev/null || true
+  fi
   c_ok "bootstrap tamam"
 fi
 
@@ -181,15 +227,31 @@ cat > "$CHROOT/etc/apt/apt.conf.d/99epixos" <<'EOF'
 APT::Install-Recommends "false";
 APT::Install-Suggests "false";
 Acquire::Retries "3";
+# IPv6 rotası olmayan makinelerde her paket için ~2 sn gecikme olmasın
+Acquire::ForceIPv4 "true";
 Acquire::Languages "none";
 Dpkg::Options { "--force-confdef"; "--force-confold"; };
 EOF
 cp /etc/resolv.conf "$CHROOT/etc/resolv.conf" 2>/dev/null || true
 
 # paket listeleri
+#
+# Varyant mantığı:
+#   *.list.chroot           -> her iki varyant
+#   *.list.chroot.desktop   -> yalnız desktop
+#   *.list.chroot.headless  -> yalnız headless
+# Masaüstü 12 dosya, headless 3 dosya kullanır; liste dosyaları
+# birbirinin üstüne yazmaz.
 PKGS=""
-for f in "$ISO_CFG"/package-lists/*.list.chroot; do
+for f in "$ISO_CFG"/package-lists/*.list.chroot*; do
   [[ -f "$f" ]] || continue
+  fb="$(basename "$f")"
+  case "$fb" in
+    *.list.chroot.desktop)  [[ "$VARIANT" == "desktop" ]]  || continue ;;
+    *.list.chroot.headless) [[ "$VARIANT" == "headless" ]] || continue ;;
+    *.list.chroot)          ;;
+    *) continue ;;
+  esac
   PKGS="$PKGS $(awk '!/^[[:space:]]*#/ && NF {print $1}' "$f" | tr '\n' ' ')"
 done
 # canlı sistem + çekirdek + initramfs için zorunlu ekler
@@ -282,11 +344,15 @@ if [[ $APT_RC -ne 0 ]]; then
 fi
 c_ok "paketler kuruldu ($(grep -c '^Setting up' "$INSTALL_LOG") paket)"
 
-# ---- KRİTİK GÜVENCE: X sunucusu ----
+# ---- KRİTİK GÜVENCE: X sunucusu (YALNIZ MASAÜSTÜ) ----
 # gdm3 xserver-xorg'u yalnızca "Recommends" olarak istiyor ve biz
 # --no-install-recommends kullanıyoruz. Sonuç: GDM açılıyor, X bulamıyor,
 # EKRAN SİYAH KALIYOR (ne hata ne ilerleme). Bu yüzden açıkça kuruyoruz.
-if ! chroot "$CHROOT" test -x /usr/lib/xorg/Xorg; then
+#
+# HEADLESS'TA KURULMAZ: X, GNOME, mutter, ubuntu-wallpapers ~2.3 GB
+# getiriyor ve imajı 2.8 GB'a çıkarıyordu (hedef 500 MB). Headless'ta
+# grafik yok, X'e ihtiyaç da yok.
+if [[ "$VARIANT" == "desktop" ]] && ! chroot "$CHROOT" test -x /usr/lib/xorg/Xorg; then
   c_warn "X sunucusu yok — xserver-xorg kuruluyor (gdm3 Recommends ile gelmiyor)"
   chroot "$CHROOT" env DEBIAN_FRONTEND=noninteractive LC_ALL=C \
     apt-get install -y --no-install-recommends \
@@ -294,12 +360,17 @@ if ! chroot "$CHROOT" test -x /usr/lib/xorg/Xorg; then
     xserver-xorg-video-all xinit x11-xserver-utils x11-xkb-utils \
     >> "$INSTALL_LOG" 2>&1 || c_warn "X sunucusu kurulamadı (ağ?)"
 fi
-if chroot "$CHROOT" test -x /usr/lib/xorg/Xorg; then
-  c_ok "X sunucusu hazır ($(chroot "$CHROOT" ls /usr/lib/xorg/modules/drivers 2>/dev/null | wc -l) sürücü modülü)"
-else
-  c_err "X sunucusu KURULAMADI — bu ISO'da masaüstü açılmaz!"
-  X_MISSING=1
-fi
+  # X denetimi YALNIZ masaüstünde anlamlı (headless'ta X kasıtlı olarak yok)
+  if [[ "$VARIANT" == "desktop" ]]; then
+    if chroot "$CHROOT" test -x /usr/lib/xorg/Xorg; then
+      c_ok "X sunucusu hazır ($(chroot "$CHROOT" ls /usr/lib/xorg/modules/drivers 2>/dev/null | wc -l) sürücü modülü)"
+    else
+      c_err "X sunucusu KURULAMADI — bu ISO'da masaüstü açılmaz!"
+      X_MISSING=1
+    fi
+  else
+    c_ok "X sunucusu yok (headless — beklenen)"
+  fi
 
 # ================================================================ 4) CHROOT AYARLARI
 c_step "4/7 sistem ayarları ve hook'lar"
@@ -346,9 +417,23 @@ mkdir -p "$CHROOT/usr/share/epixos" "$CHROOT/usr/share/backgrounds/epixos" \
         "$CHROOT/usr/share/backgrounds/epixos/epixos-default.svg"
 
 # hook'lar (sıralı)
-for h in "$ISO_CFG"/hooks/live/*.hook.chroot; do
+#
+# Varyant filtresi: bir hook yalnızca belirli bir varyanta aitse adı
+# ".desktop" veya ".headless" ile biter:
+#     0100-epixos-branding.hook.chroot            -> her iki varyant
+#     0250-epixos-headless.hook.chroot.headless   -> yalnız headless
+# Uzantısız hook'lar iki varyantta da çalışır; içinde EPIX_VARIANT
+# değişkenine bakarak dallanabilirler.
+for h in "$ISO_CFG"/hooks/live/*.hook.chroot*; do
   [[ -f "$h" ]] || continue
-  c_ok "hook: $(basename "$h")"
+  hbase="$(basename "$h")"
+  case "$hbase" in
+    *.hook.chroot.desktop)  [[ "$VARIANT" == "desktop" ]]  || continue ;;
+    *.hook.chroot.headless) [[ "$VARIANT" == "headless" ]] || continue ;;
+    *.hook.chroot)          ;;
+    *) continue ;;
+  esac
+  c_ok "hook: $hbase"
   if ! cp "$h" "$CHROOT/tmp/epix-hook.sh"; then
     die "hook kopyalanamadı: $h"
   fi
@@ -356,8 +441,9 @@ for h in "$ISO_CFG"/hooks/live/*.hook.chroot; do
   if ! chroot "$CHROOT" env DEBIAN_FRONTEND=noninteractive \
         EPIX_VERSION="$VERSION" EPIX_RELEASE="$RELEASE" \
         EPIX_CODENAME="$CODENAME" EPIX_TARGET_RAM_MB="$TARGET_RAM" \
+        EPIX_VARIANT="$VARIANT" \
         /tmp/epix-hook.sh 2>&1 | tee -a "$LOG" | sed 's/^/    /'; then
-    c_warn "hook hata verdi (${h##*/}) — devam ediliyor"
+    c_warn "hook hata verdi (${hbase}) — devam ediliyor"
   fi
   rm -f "$CHROOT/tmp/epix-hook.sh"
 done
@@ -414,22 +500,32 @@ check_layer "sshd kurulu"        "command -v sshd || test -x /usr/sbin/sshd"
 check_layer "ssh enable"         "test -e /etc/systemd/system/ssh.service.wants/ssh.service -o -e /etc/systemd/system/multi-user.target.wants/ssh.service -o -e /etc/systemd/system/sshd.service.wants/sshd.service"
 check_layer "epix-ssh aracı"     "test -x /usr/local/bin/epix-ssh"
 check_layer "epix-hw aracı"      "test -x /usr/local/bin/epix-hw"
+if [[ "$VARIANT" == "desktop" ]]; then
 check_layer "epix-ai aracı"      "test -x /usr/local/bin/epix-ai"
 check_layer "epix-ai.service"    "test -f /etc/systemd/system/epix-ai.service"
+fi
 check_layer "NetworkManager"     "command -v nmcli"
+# X/GNOME/AI katmanları YALNIZ masaüstü varyantında beklenir.
+# Headless'ta bunlar hiç kurulmaz (bilinçli: en küçük imaj).
+if [[ "$VARIANT" == "desktop" ]]; then
 check_layer "X sunucusu (Xorg)"  "test -x /usr/lib/xorg/Xorg"
 check_layer "X sürücü modülleri" "test \"\$(ls /usr/lib/xorg/modules/drivers 2>/dev/null | wc -l)\" -gt 0"
+fi
 check_layer "epix-doctor aracı"  "test -x /usr/local/bin/epix-doctor"
 # shell betiklerinin SÖZDİZİMİ doğru olmalı — bozuk profile.d her oturum açılışında
 # "hata var" uyarısı üretiyor (yaşandı: heredoc'ta esacfi -> fazladan fi)
 check_layer "profile.d sözdizimi" "for f in /etc/profile.d/*.sh; do bash -n \"\$f\" || exit 1; done"
+if [[ "$VARIANT" == "desktop" ]]; then
 check_layer "epix-rescue aracı"  "test -x /usr/local/bin/epix-rescue"
+fi
 # NOT: /lib -> usr/lib symlink olduğu için firmware gerçekte usr/lib/firmware altında.
 # Ayrıca firmware dosyaları .zst sıkıştırılmış olabilir (iwlwifi-*.ucode.zst).
 check_layer "wifi firmware"      "ls /usr/lib/firmware/iwlwifi-* /usr/lib/firmware/rtlwifi /usr/lib/firmware/brcm /usr/lib/firmware/ath10k >/dev/null 2>&1"
 check_layer "firmware dosya sayısı (>1000)" "test \"$(find /usr/lib/firmware -type f 2>/dev/null | wc -l)\" -gt 1000"
+if [[ "$VARIANT" == "desktop" ]]; then
 check_layer "node24 (~200MB)"    "test -x /opt/node24/bin/node"
 check_layer "dsh kurulu"         "test -x /opt/node24/lib/node_modules/@deepseek-ai/dsh/lib/bin.js || command -v dsh >/dev/null"
+fi
 # NOT: $(...) HOST kabuğunda açılır, chroot'ta değil. Bu yüzden iç içe
 # komutlar \$ ile kaçırılmalı; aksi halde kontrol chroot dışında hesaplanır
 # ve her zaman başarısız olur (yaşandı: anahtar deposu izin yanlış uyarısı).
@@ -437,6 +533,29 @@ check_layer "anahtar deposu izin" "test \"\$(stat -c %a /opt/epixos/dsh 2>/dev/n
 check_layer "AI anahtarı gömülü DEĞİL" "! grep -qsE 'sk-[A-Za-z0-9]{20,}' /etc/epixos/ai.env /opt/epixos/dsh/.credentials.yaml 2>/dev/null"
 check_layer "casper yapılandırma" "test -f /etc/casper.conf"
 check_layer "udev zaman aşımı"   "grep -qs event_timeout /etc/udev/udev.conf.d/50-epixos.conf"
+# Headless'a özel kontroller
+if [[ "$VARIANT" == "headless" ]]; then
+  check_layer "headless: grafik YOK"    "test ! -e /usr/bin/gnome-shell"
+  check_layer "headless: calamares YOK" "test ! -e /usr/bin/calamares"
+  check_layer "headless: hedef metin"   "readlink -f /etc/systemd/system/default.target | grep -q multi-user"
+  check_layer "headless: sshd ayari"    "test -f /etc/ssh/sshd_config.d/10-epixos-headless.conf"
+  check_layer "headless: wifi unblock"  "test -f /etc/systemd/system/epix-wifi-unblock.service"
+  check_layer "headless: /etc/issue"    "grep -qs 'epixOS headless' /etc/issue"
+  check_layer "headless: epix-doctor"   "test -x /usr/local/bin/epix-doctor"
+  check_layer "headless: epix-net-check" "test -x /usr/local/bin/epix-net-check"
+  # DİKKAT: `|| true` ZORUNLU. /proc ve /sys chroot'a BAĞLI olduğu için
+  # du canlı proc dosyalarına erişemez ve exit 1 döner. set -e + pipefail
+  # ile bu, betiği SESSİZCE öldürüyordu (ekranda hata yok, derleme 1 sn'de
+  # bitiyor, isottree hiç oluşmuyor — yaşandı).
+  hs=$(du -sm --exclude=proc --exclude=sys --exclude=dev --exclude=run "$CHROOT" 2>/dev/null | cut -f1 || true)
+  hs=${hs:-0}
+  if [ "$hs" -lt 2500 ]; then
+    c_ok "  ✓ headless boyut: ${hs}MB (<2500MB)"
+  else
+    c_warn "  ✗ headless boyut: ${hs}MB — beklenenden büyük (masaüstü paketleri sızmış)"
+    LAYER_FAIL=$((LAYER_FAIL+1))
+  fi
+fi
 [[ $LAYER_FAIL -eq 0 ]] || c_warn "$LAYER_FAIL katman eksik — ISO üretimi devam ediyor"
 
 # ================================================================ 4b) SSH HOST ANAHTARLARI
@@ -509,7 +628,7 @@ run_progress "initramfs oluşturuluyor" 75 "casper + overlay modülleri" \
   -- chroot "$CHROOT" update-initramfs -u -k "$KVER" > "$BUILD/initramfs.log" 2>&1 \
   || c_warn "initramfs uyarıları: $(tail -3 "$BUILD/initramfs.log" | tr '\n' ' ')"
 [[ -f "$CHROOT/boot/initrd.img-$KVER" ]] || die "initrd üretilemedi"
-c_ok "initramfs hazır: $(du -h "$CHROOT/boot/initrd.img-$KVER" | cut -f1)"
+c_ok "initramfs hazır: $(du -h "$CHROOT/boot/initrd.img-$KVER" 2>/dev/null | cut -f1 || true)"
 
 # live-boot / casper betikleri initramfs'te mi?
 chroot "$CHROOT" bash -c "lsinitramfs /boot/initrd.img-$KVER 2>/dev/null | grep -q 'scripts/casper'" \
@@ -646,7 +765,7 @@ if [[ $MKSQ_RC -ne 0 ]]; then
   tr '\r' '\n' < "$MKSQLOG" | tail -20 >&2
   exit 1
 fi
-c_ok "filesystem.squashfs: $(du -h "$ISOTREE/casper/filesystem.squashfs" | cut -f1)"
+c_ok "filesystem.squashfs: $(du -h "$ISOTREE/casper/filesystem.squashfs" 2>/dev/null | cut -f1 || true)"
 
 cp -f "$CHROOT/boot/vmlinuz-$KVER"  "$ISOTREE/casper/vmlinuz"
 cp -f "$CHROOT/boot/initrd.img-$KVER" "$ISOTREE/casper/initrd.img"
@@ -671,6 +790,35 @@ c_step "7/8 GRUB menüsü ve ISO kalıbı"
 # kuramayınca ekran kararıyor ve sistem donmuş sanılıyor.
 BOOT_ARGS="boot=casper verbose showmounts console=tty0 vga=791 locale=tr_TR.UTF-8 console-setup/layoutcode=tr keyboard-configuration/layoutcode=tr keyboard-configuration/variantcode= timezone=Europe/Istanbul hostname=epixos username=live ---"
 
+# ── GRUB MENÜSÜ ─────────────────────────────────────────────────────────
+if [[ "$VARIANT" == "headless" ]]; then
+# HEADLESS: ekran yok, klavye yok. Menü yalnızca kurtarma için duruyor;
+# varsayılan girdi otomatik açılır (timeout=3). vga=791 GEREKSİZ —
+# bu varyantta X/GNOME yok, framebuffer kurulmuyor.
+# console=ttyS0,115200n8: seri konsol (Pi benzeri kartlarda tek çıkış).
+cat > "$ISOTREE/boot/grub/grub.cfg" <<EOF
+# epixOS ${VERSION} (${RELEASE}) — headless (SSH + Wi-Fi)
+set default=0
+set timeout=3
+set timeout_style=menu
+
+menuentry "epixOS ${VERSION} — Headless (SSH + Wi-Fi)" {
+    linux /casper/vmlinuz boot=casper console=tty0 console=ttyS0,115200n8 locale=tr_TR.UTF-8 timezone=Europe/Istanbul hostname=epixos username=live ---
+    initrd /casper/initrd.img
+}
+menuentry "epixOS ${VERSION} — Headless, ayrintili" {
+    linux /casper/vmlinuz boot=casper verbose console=tty0 console=ttyS0,115200n8 locale=tr_TR.UTF-8 timezone=Europe/Istanbul hostname=epixos username=live ---
+    initrd /casper/initrd.img
+}
+menuentry "epixOS ${VERSION} — Metin modu (kurtarma)" {
+    linux /casper/vmlinuz boot=casper verbose console=tty0 systemd.unit=multi-user.target nomodeset locale=tr_TR.UTF-8 hostname=epixos username=live ---
+    initrd /casper/initrd.img
+}
+menuentry "Yeniden Baslat" { reboot }
+menuentry "Kapat" { halt }
+EOF
+
+else
 # GRUB: eski BIOS'larda "gfxmode=auto" grafik modu kuramayınca menü okunamaz
 # hale geliyor / ekran kararıyor. Önce metin modunda çalış, gfxterm varsa geç.
 cat > "$ISOTREE/boot/grub/grub.cfg" <<EOF
@@ -719,6 +867,7 @@ menuentry "epixOS ${VERSION} — Metin Modu (grafik yok)" {
 menuentry "Yeniden Başlat" { reboot }
 menuentry "Kapat" { halt }
 EOF
+fi
 
 # GRUB marka (logo + renkler)
 cat > "$ISOTREE/boot/grub/theme-epixos.cfg" <<'EOF'
@@ -833,11 +982,36 @@ if [[ -f "$SFS" ]]; then
         VERIFY_FAIL=$((VERIFY_FAIL+1))
       fi
     done
-    for f in "/etc/ssh/ssh_host_ed25519_key" "/etc/casper.conf" "/usr/local/bin/epix-ai" \
-             "/opt/node24/bin/node" "/etc/systemd/system/epix-ai.service" \
-             "/etc/dconf/db/local.d/00-epix-defaults" "/usr/share/backgrounds/epixos/epixos-default.svg" \
-             "/usr/lib/xorg/Xorg" "/usr/local/bin/epix-doctor" "/usr/local/bin/epix-rescue" \
-             "/usr/bin/epiphany-browser"; do
+    # ZORUNLU (her varyantta olmali)
+    CRIT_FILES=(
+      "/etc/ssh/ssh_host_ed25519_key"
+      "/etc/casper.conf"
+      "/usr/local/bin/epix-doctor"
+      "/usr/sbin/sshd"
+    )
+    # YALNIZ MASAUSTU: X, GNOME, AI ajani, tarayici, duvar kagidi.
+    # Headless bunlari bilincli olarak ICERMEZ; burada istenirse
+    # dogrulama yanlis pozitif verir (yasandi: 7 "sorun" — hepsi
+    # headless'ta olmasi gereken dosyalardi).
+    if [[ "$VARIANT" == "desktop" ]]; then
+      CRIT_FILES+=(
+        "/usr/local/bin/epix-ai"
+        "/opt/node24/bin/node"
+        "/etc/systemd/system/epix-ai.service"
+        "/etc/dconf/db/local.d/00-epix-defaults"
+        "/usr/share/backgrounds/epixos/epixos-default.svg"
+        "/usr/lib/xorg/Xorg"
+        "/usr/local/bin/epix-rescue"
+        "/usr/bin/epiphany-browser"
+      )
+    else
+      CRIT_FILES+=(
+        "/etc/ssh/sshd_config.d/10-epixos-headless.conf"
+        "/etc/systemd/system/epix-wifi-unblock.service"
+        "/usr/local/bin/epix-net-check"
+      )
+    fi
+    for f in "${CRIT_FILES[@]}"; do
       if grep -qx "squashfs-root$f" "$SFS_LIST"; then
         c_ok "  ✓ squashfs: $f"
       else

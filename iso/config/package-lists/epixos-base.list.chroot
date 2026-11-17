@@ -8,9 +8,7 @@ tzdata
 
 # --- dil: TR varsayılan, EN ikinci dil ---
 language-pack-tr
-language-pack-gnome-tr
 language-pack-en
-language-pack-gnome-en
 language-selector-common
 
 # --- sistem ---
@@ -20,7 +18,6 @@ systemd-timesyncd
 systemd-zram-generator
 dbus
 network-manager
-network-manager-gnome
 wpasupplicant
 rfkill
 iproute2

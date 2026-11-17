@@ -1,0 +1,160 @@
+#!/bin/sh
+# epixOS headless — teşhis araçları
+#
+# SADECE headless varyantı. Masaüstü teşhis hook'u (0400) GNOME/X/GDM
+# odaklı ve bu varyantta kurulmuyor. Ekransız bir makinede tek geri
+# bildirim SSH ve konsol olduğu için teşhis araçları burada DAHA önemli.
+set -e
+
+echo "P: headless teşhis araçları"
+
+# ---------------------------------------------------------------- epix-doctor
+cat > /usr/local/bin/epix-doctor <<'DOCEOF'
+#!/bin/sh
+# epixOS teşhis — headless sürüm.
+# Kullanım: epix-doctor [--net] [--ssh] [--all]
+E="\033[1;33m"; G="\033[1;32m"; R="\033[1;31m"; N="\033[0m"
+hdr() { printf "\n${E}=== %s ===${N}\n" "$1"; }
+ok()  { printf "  ${G}✓${N} %s\n" "$*"; }
+bad() { printf "  ${R}✗${N} %s\n" "$*"; }
+inf() { printf "    %s\n" "$*"; }
+
+MODE="${1:---all}"
+[ "$MODE" = "--all" ] && MODE="all"
+
+hdr "epixOS headless durum"
+printf "  sürüm    : %s\n" "$(cat /usr/share/epixos/version 2>/dev/null | head -1)"
+printf "  çekirdek : %s\n" "$(uname -r)"
+printf "  açılış   : %s\n" "$(readlink -f /etc/systemd/system/default.target | sed 's|.*/||')"
+printf "  uptime   : %s\n" "$(uptime -p 2>/dev/null || uptime)"
+
+if [ "$MODE" = "all" ] || [ "$MODE" = "--net" ]; then
+  hdr "Ağ"
+  ip -4 -o addr show scope global 2>/dev/null | while read -r _ ifc _ cidr _; do
+    inf "$ifc  $cidr"
+  done
+  if command -v nmcli >/dev/null 2>&1; then
+    st=$(nmcli -t -f STATE general 2>/dev/null)
+    case "$st" in
+      connected) ok "NetworkManager: $st" ;;
+      *)         bad "NetworkManager: ${st:-bilinmiyor}" ;;
+    esac
+    nmcli -t -f NAME,DEVICE,STATE con show --active 2>/dev/null | while IFS=: read -r n d s; do
+      inf "profil: $n ($d) $s"
+    done
+    wifi=$(nmcli -t -f DEVICE,TYPE device 2>/dev/null | awk -F: '$2=="wifi"{print $1}')
+    if [ -n "$wifi" ]; then
+      ok "Wi-Fi aygıtı: $wifi"
+      rfkill list wifi 2>/dev/null | grep -q "Soft blocked: yes" && bad "Wi-Fi yazılımsal olarak KAPALI (rfkill unblock wifi)"
+    else
+      bad "Wi-Fi aygıtı bulunamadı — sürücü/firmware eksik olabilir"
+      inf "kontrol: dmesg | grep -i firmware"
+    fi
+  else
+    bad "nmcli yok — NetworkManager kurulu değil"
+  fi
+fi
+
+if [ "$MODE" = "all" ] || [ "$MODE" = "--ssh" ]; then
+  hdr "SSH"
+  if systemctl is-active --quiet ssh 2>/dev/null || systemctl is-active --quiet sshd 2>/dev/null; then
+    ok "sshd çalışıyor (port 22)"
+  else
+    bad "sshd ÇALIŞMIYOR — 'systemctl status ssh' ile bak"
+  fi
+  ss -tlnp 2>/dev/null | grep -q ':22 ' && ok "port 22 dinleniyor" || bad "port 22 dinlenmiyor"
+  inf "kullanıcılar: $(awk -F: '$3>=1000 && $3<65534 {print $1}' /etc/passwd | tr '\n' ' ')"
+  n=$(ls /etc/ssh/ssh_host_*_key 2>/dev/null | wc -l)
+  [ "$n" -ge 3 ] && ok "host anahtarı: $n" || bad "host anahtarı eksik ($n/3) — 'ssh-keygen -A'"
+fi
+
+hdr "Kurtarma ipuçları"
+inf "günlük      : journalctl -b -p err"
+inf "ağ yeniden  : sudo systemctl restart NetworkManager"
+inf "wifi bağlan : sudo nmcli device wifi connect \"AG\" password \"SIFRE\""
+inf "wifi tara   : nmcli device wifi list"
+inf "ssh aç      : sudo systemctl enable --now ssh"
+inf "fabrika     : sudo epix-setup --force"
+DOCEOF
+chmod 755 /usr/local/bin/epix-doctor
+
+# ---------------------------------------------------------------- epix-net-check
+cat > /usr/local/bin/epix-net-check <<'NCEOF'
+#!/bin/sh
+# Hızlı ağ kontrolü — SSH ile bağlanamıyorsan konsolda çalıştır.
+echo "--- arayüzler ---"
+ip -4 -o addr show scope global 2>/dev/null || echo "  (IPv4 adresi yok)"
+echo "--- varsayılan rota ---"
+ip route show default 2>/dev/null || echo "  (varsayılan rota yok)"
+echo "--- DNS ---"
+getent hosts os.epix.tr >/dev/null 2>&1 && echo "  DNS çalışıyor" || echo "  DNS ÇALIŞMIYOR"
+echo "--- dinlenen portlar ---"
+ss -tlnp 2>/dev/null | head -12
+NCEOF
+chmod 755 /usr/local/bin/epix-net-check
+
+# ---------------------------------------------------------------- epix-setup-run
+cat > /usr/local/bin/epix-setup-run <<'SEOF'
+#!/bin/sh
+# USB'ye gömülü yapılandırmayı (kullanıcı, parola, Wi-Fi) yeniden uygula.
+exec sudo /usr/local/bin/epix-setup --force
+SEOF
+chmod 755 /usr/local/bin/epix-setup-run
+
+echo "  ✓ epix-doctor, epix-net-check, epix-setup-run"
+
+# shell sozdizimi kontrolu
+for f in /usr/local/bin/epix-doctor /usr/local/bin/epix-net-check /usr/local/bin/epix-setup-run; do
+  sh -n "$f" || { echo "  ✗ sozdizimi hatasi: $f"; exit 1; }
+done
+echo "  ✓ headless tani araclari hazir"
+
+# ---------------------------------------------------------------- boyut budama
+# ÖLÇÜM: ham headless chroot 3,2 GB geldi, hedef ~1 GB idi.
+# En büyük kalemler:
+#   /usr/lib/locale        235 MB  (locales-all: 300+ dil)
+#   /usr/lib/firmware      664 MB  (GPU/NIC firmware, headless'ta GPU yok)
+#   /usr/lib/modules       155 MB  (çekirdek modülleri — gerekli, dokunulmaz)
+#
+# locales-all KALDIRILMAZ (tr_TR.UTF-8 çalışmalı) ama derlenmiş
+# yerel ayarlardan yalnız gerekli olanlar bırakılır.
+echo "P: headless boyut budama"
+
+if [ -d /usr/lib/locale ]; then
+  before=$(du -sm /usr/lib/locale | cut -f1)
+  # tr_TR, en_US, C/POSIX ve UTF-8 türevleri kalsın; gerisi gitsin.
+  for d in /usr/lib/locale/*; do
+    case "$(basename "$d")" in
+      tr_TR*|en_US*|C.UTF-8|POSIX|locale-archive) ;;
+      *) rm -rf "$d" ;;
+    esac
+  done
+  after=$(du -sm /usr/lib/locale | cut -f1)
+  echo "  ✓ yerel ayarlar: ${before}MB -> ${after}MB (tr_TR/en_US korundu)"
+fi
+
+# GPU firmware: headless'ta ekran kartı yok. Ağ firmware'ine DOKUNMA.
+for d in nvidia amdgpu radeon i915 nouveau; do
+  if [ -d "/usr/lib/firmware/$d" ]; then
+    rm -rf "/usr/lib/firmware/$d"
+    echo "  ✓ firmware/$d kaldırıldı (GPU)"
+  fi
+done
+
+# Ubuntu duvar kağıtları / ikon temaları (grafik yok)
+for d in /usr/share/backgrounds /usr/share/gnome-background-properties; do
+  [ -d "$d" ] && rm -rf "$d" && echo "  ✓ $(basename "$d") kaldırıldı"
+done
+
+# Belge ve man sayfaları
+rm -rf /usr/share/doc/* /usr/share/man/* /usr/share/info/* 2>/dev/null || true
+mkdir -p /usr/share/doc /usr/share/man
+
+# apt önbelleği
+rm -f /var/cache/apt/archives/*.deb 2>/dev/null || true
+
+# DİKKAT: `du -sm /` chroot içinde /proc ve /sys BAĞLI olduğu için
+# host dosya sistemlerine sızıyor ("cannot access /proc/NNN/fd") ve
+# yanlış/hatalı çıktı üretiyor. Bu yüzden yalnız gerçek dizinler ölçülür.
+final=$(du -sm --exclude=/proc --exclude=/sys --exclude=/dev --exclude=/run / 2>/dev/null | cut -f1)
+echo "  ✓ headless chroot: ${final:-?}MB"

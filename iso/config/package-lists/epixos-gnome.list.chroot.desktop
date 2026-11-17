@@ -82,3 +82,10 @@ yaru-theme-gtk
 yaru-theme-icon
 yaru-theme-gnome-shell
 sound-theme-freedesktop
+
+# --- base'den taşındı: GNOME kütüphanelerine bağımlı ---
+# network-manager-gnome, gnome-shell'i zorunlu bağımlılık olarak ister.
+# Headless varyantında bu 2.3 GB fazlalık demekti; masaüstünde gerekli.
+network-manager-gnome
+language-pack-gnome-tr
+language-pack-gnome-en

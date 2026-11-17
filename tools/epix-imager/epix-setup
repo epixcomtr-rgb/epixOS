@@ -15,7 +15,13 @@
 # ayarları uygular ve tekrar çalışmaması için işaret koyar.
 #
 # Elle çalıştırma:  sudo epix-setup --force
-set -eu
+set -e
+# Hangi satırda öldüğünü gör (journal'da "line N")
+# Hangi satırda öldüğünü gör (journal'da "line N").
+# DİKKAT: trap metni TEK TIRNAK içinde olmalı; çift tırnak kullanılırsa
+# $? ve $LINENO trap kurulurken genişler ve sözdizimi bozulur
+# ("trap: EXITu: bad trap" — yaşandı, epix-setup hiç çalışmadı).
+trap 'rc=$?; [ "$rc" -eq 0 ] || log "HATA: satir $LINENO (cikis $rc)"' EXIT
 
 MNT=/run/epix-setup
 WORK=/run/epix-setup-work
@@ -29,6 +35,30 @@ FORCE=0
 
 mkdir -p "$MNT" "$WORK"
 
+# Bölüm numarasını güvenle sil: /dev/sda1 -> /dev/sda, /dev/nvme0n1p2 -> /dev/nvme0n1
+# /dev/mmcblk0p1 -> /dev/mmcblk0, /dev/loop50 -> /dev/loop50 (bölümsüz!)
+#
+# NEDEN BASİT sed YETMEZ: `sed 's/p\?[0-9]*$//'` denendi ve
+# /dev/loop50 -> /dev/loo yaptı (loop adının sonundaki "p50" sanıldı).
+# Aynı hata /dev/md0, /dev/dm-0 gibi adlarda da olur.
+# Doğrusu: önce gerçekten bölüm mü, `lsblk -no TYPE` ile bak.
+disk_of() {
+  dev="$1"
+  [ -b "$dev" ] || { echo ""; return 1; }
+  t=$(lsblk -dno TYPE "$dev" 2>/dev/null | head -1)
+  if [ "$t" = "disk" ] || [ "$t" = "loop" ]; then
+    echo "$dev"; return 0
+  fi
+  parent=$(lsblk -no PKNAME "$dev" 2>/dev/null | head -1)
+  if [ -n "$parent" ]; then echo "/dev/$parent"; return 0; fi
+  # son çare: sistematik kural (nvme/mmcblk -> pN, diğerleri -> N)
+  case "$dev" in
+    *[0-9]p[0-9]*) echo "${dev%p[0-9]*}" ;;
+    *[0-9])        echo "${dev%[0-9]}" ;;
+    *)             echo "$dev" ;;
+  esac
+}
+
 # ---------------------------------------------------------------- 1) cihazı bul
 # Canlı ortamın bulunduğu diski tespit et
 find_medium_disk() {
@@ -41,7 +71,7 @@ find_medium_disk() {
     case "$dev" in
       /dev/loop*) continue ;;    # ISO dosyasından açılmış (findiso)
     esac
-    echo "$dev" | sed 's/p\?[0-9]*$//'
+    disk_of "$dev"
     return 0
   done
   return 1
@@ -52,7 +82,7 @@ find_labeled_disk() {
   for d in /dev/disk/by-label/EPIXOS_* /dev/disk/by-label/epixos*; do
     [ -e "$d" ] || continue
     real=$(readlink -f "$d")
-    echo "$real" | sed 's/p\?[0-9]*$//'
+    disk_of "$real"
     return 0
   done
   return 1
@@ -71,19 +101,63 @@ log "ortam diski: $DISK"
 TOTAL=$(blockdev --getsz "$DISK" 2>/dev/null) || die "boyut okunamadı"
 log "disk: $TOTAL sektör"
 
+# blob'u BUL — İKİ YÖNLÜ tarama.
+#
+# KRİTİK HATA (yaşandı): epix-imager blob'u ISO'nun HEMEN SONRASINA yazar:
+#     offset = ((iso_sectors // 2048) + 1) * 2048
+# Örnek: 1002 MB ISO -> sektör 2.050.048. 2.5 GB USB'de bu, diskin
+# ORTASINDADIR. İlk sürüm yalnızca disk sonundan geriye 64 x 1 MiB
+# (en fazla ~5 MB) tarıyordu -> blob'u ASLA bulamıyordu ve "yapılandırma
+# yok" deyip sessizce çıkıyordu (kullanıcı/parola/Wi-Fi uygulanmıyordu).
+#
+# Doğrusu: önce ISO sonrası bölgeyi (bilinen yer) tara, sonra disk sonundan
+# geriye tara. İki yön de denenir.
+BLOB_MAX_SECTORS=8192          # blob en fazla 4 MB (8192 sektör)
+SCAN_STEP=2048                 # imager 1 MiB hizalı yazıyor
+
+read_magic() {
+  dd if="$DISK" bs=512 skip="$1" count=1 status=none 2>/dev/null \
+    | dd bs=1 count=8 status=none 2>/dev/null || true
+}
+
 find_blob() {
-  # 1 MiB hizalı adaylar, sondan geriye 4 MiB'lik pencere içinde
-  # (blob 4 MB'tan küçük tutulur)
+  # --- 1) ISO sonrası bölge: ISO9660 birim boyutu 2048 sektör ---
+  # ISO'nun bittiği sektörü kaba olarak bul: "CD001" imzası ilk 32 KiB'te
+  # 16. sektörde (offset 32768) bulunur; ISO boyutunu tam bilmek yerine
+  # bölüm tablosundaki hfsplus bölümünün bitişini kullanırız.
+  # ISO'nun bittiği sektör = bölüm tablosundaki EN BÜYÜK bölüm başlangıcı.
+  #
+  # DİKKAT — üç yanlış deneme (hepsi burada test edildi):
+  #  1) hfsplus bölümünün bitişi (start+size): Gap1 bölümünü saymadığı
+  #     için ISO'nun 300 KiB gerisinde kalır, blob'u kaçırır.
+  #  2) yalnız hfsplus/iso9660 bölümlerine bakmak: Gap1 hiç sayılmaz,
+  #     iso_end p3'ün START'ı (6048) olur — tamamen yanlış.
+  #  3) start+size: Gap1 yüzünden fazla ileri gider, blob'u atlar.
+  # Doğrusu: TÜM bölümlerin start değerlerinin en büyüğü. ISO düzeni:
+  #     p1 Gap0(64) p2 EFI(288) p3 HFSPLUS(6048) p4 Gap1(2050912)
+  #     -> 2050912 = ISO'nun bittiği sektör = blob'un yazıldığı yer.
+  iso_end=0
+  for part in $(lsblk -lno NAME "$DISK" 2>/dev/null | tail -n +2); do
+    start=$(cat "/sys/class/block/$part/start" 2>/dev/null || echo 0)
+    [ "${start:-0}" -gt "$iso_end" ] && iso_end=$start
+  done
+
+  if [ -n "$iso_end" ]; then
+    log "ISO bitişi ~sektör $iso_end — sonrası taranıyor"
+    s=$(( (iso_end / SCAN_STEP) * SCAN_STEP ))
+    n=0
+    while [ "$s" -lt "$TOTAL" ] && [ "$n" -lt 16 ]; do
+      if [ "$(read_magic "$s")" = "EPIXCFG1" ]; then echo "$s"; return 0; fi
+      s=$(( s + SCAN_STEP )); n=$(( n + 1 ))
+    done
+  fi
+
+  # --- 2) disk sonundan geriye (imager farklı hizalama kullanırsa) ---
   seek=$(( (TOTAL - 2048) / 2048 * 2048 ))
   tries=0
   while [ "$seek" -gt 0 ] && [ "$tries" -lt 64 ]; do
-    magic=$(dd if="$DISK" bs=512 skip="$seek" count=1 status=none 2>/dev/null \
-            | dd bs=1 count=8 status=none 2>/dev/null || true)
-    if [ "$magic" = "EPIXCFG1" ]; then
-      echo "$seek"
-      return 0
-    fi
-    seek=$(( seek - 2048 ))
+    if [ "$(read_magic "$seek")" = "EPIXCFG1" ]; then echo "$seek"; return 0; fi
+    seek=$(( seek - SCAN_STEP ))
     tries=$(( tries + 1 ))
   done
   return 1
@@ -97,10 +171,19 @@ fi
 log "blob bulundu: sektör $OFFSET"
 
 # ---------------------------------------------------------------- 3) başlığı oku
-HDR=$(dd if="$DISK" bs=512 skip="$OFFSET" count=1 status=none 2>/dev/null)
-# 12. bayttan 4 bayt = yük boyutu (little endian)
-PSIZE=$(printf '%s' "$HDR" | dd bs=1 skip=12 count=4 status=none 2>/dev/null \
-        | od -An -tu4 | tr -d ' \n')
+  # DİKKAT — BİNARY GÜVENLİ BAŞLIK OKUMA:
+  # `HDR=$(dd ...)` YANLIŞ. Komut değişkesi NUL baytlarını ATAR; 512
+  # baytlık ikili başlık bozulur ve `skip=12` artık 12. bayta denk
+  # gelmez. Yaşandı: yük boyutu 10240 yerine 791580668 okundu ->
+  # "yük çok büyük" hatası -> epix-setup hiç uygulanmadı.
+  # Çözüm: başlığı DOSYAYA yaz, `od` ile oku.
+  dd if="$DISK" bs=512 skip="$OFFSET" count=1 status=none 2>/dev/null \
+    > "$WORK/hdr.bin" || die "başlık okunamadı"
+  [ -s "$WORK/hdr.bin" ] || die "başlık boş"
+
+  # 12. bayttan 4 bayt = yük boyutu (little endian)
+  PSIZE=$(od -An -tu4 -j12 -N4 "$WORK/hdr.bin" 2>/dev/null | tr -d ' \n')
+  : "${PSIZE:=0}"
 [ -n "$PSIZE" ] && [ "$PSIZE" -gt 0 ] 2>/dev/null || die "yük boyutu okunamadı"
 [ "$PSIZE" -le 4194304 ] || die "yük çok büyük: $PSIZE"
 log "yük boyutu: $PSIZE bayt"
@@ -174,6 +257,13 @@ if [ "$NEW_USER" != "live" ]; then
     PW=$(cat "$CFG/user-password.crypt")
     if [ -n "$PW" ]; then
       echo "$NEW_USER:$PW" | chpasswd -e && log "parola ayarlandı"
+      # useradd hesabı "!" ile kilitli başlatır; chpasswd -e kilidi
+      # kaldırmalı ama garanti altına al (QEMU'da "Permission denied"
+      # sorunu tam buradan çıkabilir).
+      usermod -U "$NEW_USER" 2>/dev/null || true
+      if command -v passwd >/dev/null 2>&1; then
+        log "  hesap durumu: $(passwd -S "$NEW_USER" 2>/dev/null || echo '?')"
+      fi
     fi
   else
     log "parola dosyası yok — parola boş"
@@ -192,8 +282,10 @@ if [ "$NEW_USER" != "live" ]; then
     log "SSH açık anahtarı kuruldu"
   fi
 fi
+log "adim 8 tamam: kullanici hazir"
 
 # ---------------------------------------------------------------- 9) Wi-Fi
+log "adim 9: Wi-Fi"
 if [ -f "$CFG/wifi.nmconnection" ]; then
   install -d -m 700 /etc/NetworkManager/system-connections
   SSID=$(awk -F= '/^ssid=/{print $2; exit}' "$CFG/wifi.nmconnection")
@@ -211,6 +303,8 @@ if [ -f "$CFG/wifi.nmconnection" ]; then
 fi
 
 # ---------------------------------------------------------------- 10) SSH
+# TEŞHİS: bu blok başarısız olursa sessizce ölmesin.
+log "adim 10: SSH"
 if [ "$SSH_ON" = "1" ]; then
   install -d -m 755 /etc/ssh/sshd_config.d
   PWLOGIN=${EPIX_SSH_PASSWORD_LOGIN:-1}
@@ -222,10 +316,35 @@ Port 22
 PermitRootLogin no
 $PWLINE
 PubkeyAuthentication yes
+# PAM üzerinden parola girişi (Ubuntu'da sshd PAM kullanır; bu satır
+# olmadan bazı durumlarda "Permission denied" alınır)
+KbdInteractiveAuthentication yes
+UsePAM yes
+# Şifre denemesi sınırı: kilitlenmeyi önle
+MaxAuthTries 6
+# TEŞHİS: neden reddedildiğini journal'da göster (VERBOSE).
+# Sorun çözülünce INFO'ya indirilebilir.
+LogLevel VERBOSE
 SSHEOF
-  ssh-keygen -A >/dev/null 2>&1 || true
-  systemctl enable ssh >/dev/null 2>&1 || true
-  systemctl restart ssh 2>/dev/null || true
+  # Her adımı AYRI koru ve logla: biri düşerse hangisi olduğu görünsün.
+  # DİKKAT: `systemctl restart ssh` D-Bus olmadan başarısız olur; epix-setup
+  # sysinit aşamasında çalıştığı için D-Bus henüz hazır olmayabilir.
+  # Bu, SSH'ın açılmaması anlamına GELMEZ — ssh.service WantedBy
+  # multi-user.target ile zaten açılışta başlar. enable yeterli.
+  log "  ssh-keygen -A"
+  ssh-keygen -A >/dev/null 2>&1 || log "  ! ssh-keygen -A başarısız"
+  log "  systemctl enable ssh"
+  if systemctl enable ssh >/dev/null 2>&1; then
+    log "  ✓ ssh enable"
+  else
+    # yedek: doğrudan sembolik bağ
+    mkdir -p /etc/systemd/system/multi-user.target.wants
+    ln -sf /lib/systemd/system/ssh.service \
+           /etc/systemd/system/multi-user.target.wants/ssh.service 2>/dev/null \
+      && log "  ✓ ssh enable (sembolik bağ)" \
+      || log "  ! ssh enable başarısız"
+  fi
+  # restart DENENMEZ: sysinit'te D-Bus yok. Zaten açılışta başlayacak.
   log "SSH açık (port 22, parola girişi: $PWLOGIN)"
 else
   systemctl disable ssh >/dev/null 2>&1 || true
@@ -235,7 +354,7 @@ fi
 # ---------------------------------------------------------------- 11) dil / saat
 command -v localectl >/dev/null 2>&1 && localectl set-locale LANG="$LANG_" 2>/dev/null || true
 command -v timedatectl >/dev/null 2>&1 && timedatectl set-timezone "$TZ_" 2>/dev/null || true
-log "dil: $LANG_  saat dilimi: $TZ_"
+log "adim 11 tamam: dil=$LANG_ saat=$TZ_"
 
 # ---------------------------------------------------------------- 12) işaretle
 date -u '+%Y-%m-%dT%H:%M:%SZ' > "$APPLIED"

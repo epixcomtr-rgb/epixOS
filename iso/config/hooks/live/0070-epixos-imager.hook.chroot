@@ -29,8 +29,11 @@ RemainAfterExit=yes
 # USB yoksa/bozuksa açılışı engellemesin
 ExecStart=-/usr/local/bin/epix-setup
 TimeoutStartSec=90
-StandardOutput=journal
-StandardError=journal
+# TEŞHİS: journal'a EK olarak konsola da yaz. Headless makinede
+# (ekransız, seri konsol) tek geri bildirim burasıdır; journal'a
+# yazıldığında epix-setup'ın neden başarısız olduğu görünmüyordu.
+StandardOutput=journal+console
+StandardError=journal+console
 
 [Install]
 WantedBy=sysinit.target
