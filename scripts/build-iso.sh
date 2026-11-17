@@ -375,6 +375,40 @@ fi
 # ================================================================ 4) CHROOT AYARLARI
 c_step "4/7 sistem ayarları ve hook'lar"
 
+# ---- APT deposu imza anahtari
+# 0110-epixos-depo hook'u bu dosyayi arar. Kopyalanmazsa depo satiri
+# YORUM olarak yazilir ve ISO "deposuz" cikar: kullanici
+# `apt install epixos-tema` calistiramaz.
+_KEY=""
+for _c in "$DIST/apt/epixos-archive-keyring.gpg" \
+          "$ROOT/.apt-key/epixos-archive-keyring.gpg"; do
+  [[ -f "$_c" ]] && { _KEY="$_c"; break; }
+done
+if [[ -n "$_KEY" ]]; then
+  install -m 644 "$_KEY" "$CHROOT/tmp/epixos-archive-keyring.gpg"
+  c_ok "APT deposu anahtari gomuldu ($(stat -c%s "$_KEY") bayt)"
+else
+  c_warn "DEPO ANAHTARI YOK - ISO'da epixOS deposu DEVRE DISI olacak"
+  c_warn "  duzelt: ./scripts/make-repo.sh"
+fi
+
+# ---- epixos-base paketini chroot'a kur (epix-market + GUI + araclar)
+# Chroot eski ISO'dan kalma olabilir; magaza ve depo ISO'ya girsin diye
+# guncel paketi burada uygulariz.
+_DEB=$(ls "$DIST"/epixos-base_*_all.deb 2>/dev/null | sort -V | tail -1 || true)
+if [[ -n "$_DEB" ]]; then
+  cp -f "$_DEB" "$CHROOT/tmp/epixos-base.deb"
+  if chroot "$CHROOT" dpkg -i /tmp/epixos-base.deb >>"$LOG" 2>&1; then
+    c_ok "epixos-base chroot'a kuruldu ($(basename "$_DEB"))"
+  else
+    c_warn "epixos-base kurulamadi - magaza ISO'da olmayabilir"
+  fi
+  rm -f "$CHROOT/tmp/epixos-base.deb"
+else
+  c_warn "dist/epixos-base_*_all.deb YOK - magaza ISO'ya girmeyecek"
+  c_warn "  duzelt: ./scripts/make-deb.sh"
+fi
+
 export EPIX_VERSION EPIX_RELEASE="$RELEASE" EPIX_CODENAME="$CODENAME" EPIX_TARGET_RAM_MB="$TARGET_RAM"
 
 # hostname / hosts

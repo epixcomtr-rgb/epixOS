@@ -17,28 +17,45 @@ mkdir -p /usr/share/keyrings /etc/apt/sources.list.d
 # Anahtarı ISO'ya göm. DİKKAT: depo anahtarı .apt-key/ altında ve
 # .gitignore'da; ISO derlenirken oradan kopyalanır. Yoksa derleme
 # sessizce "deposuz ISO" üretmesin diye GÜRÜLTÜLÜ hata verir.
+# Anahtar kaynagi: birden fazla olasi yer (hook chroot icinde calisir,
+# bu yuzden ana makinenin yollari DEGIL, /tmp'ye kopyalanmis hali ve
+# derleme tarafindan gomulmus yol kullanilir).
 KEY_SRC=""
-for c in /tmp/epixos-archive-keyring.gpg "$(dirname "$0")/../../../.apt-key/epixos-archive-keyring.gpg"; do
+for c in \
+  /tmp/epixos-archive-keyring.gpg \
+  /tmp/apt/epixos-archive-keyring.gpg \
+  /cdrom/epixos-archive-keyring.gpg \
+  "$(dirname "$0")/../../../dist/apt/epixos-archive-keyring.gpg"; do
   [[ -f "$c" ]] && { KEY_SRC="$c"; break; }
 done
 
 if [[ -n "$KEY_SRC" ]]; then
   install -m 644 "$KEY_SRC" "$KEYRING"
   echo "P:   anahtar gömüldü ($KEY_SRC)"
+elif [[ -f "$KEYRING" ]]; then
+  # Anahtar kaynağı bulunamadı ama keyring zaten chroot'ta (önceki
+  # derlemeden). Bu durumda depo ÇALIŞIR — yanlış alarm verme.
+  echo "P:   anahtar zaten chroot'ta ($(stat -c%s "$KEYRING") bayt)"
 else
-  # Anahtar yoksa depoyu YİNE DE tanıt ama imza doğrulaması olmadan
-  # eklemek güvenlik açığı olur. Bunun yerine trusted=yes kullanmıyoruz;
-  # kullanıcı anahtarı elle ekleyebilsin diye not düşüyoruz.
-  echo "P:   UYARI: depo anahtarı bulunamadı — kaynak 'devre dışı' yazılacak" >&2
+  # Anahtar hiç yok: depoyu imzasız tanıtmak güvenlik açığı olur.
+  # trusted=yes KULLANMIYORUZ; satırı yorumlu yazıp ne yapılacağını söyleriz.
+  echo "P:   UYARI: depo anahtarı yok — kaynak DEVRE DIŞI yazılacak" >&2
+  echo "P:   düzelt: ./scripts/make-repo.sh sonra ISO'yu yeniden derle" >&2
 fi
 
 # Depo satırı: yalnızca anahtar varsa etkin
 if [[ -f "$KEYRING" ]]; then
-  cat > "$LIST" <<LISTEOF
+  # DİKKAT: heredoc TIRNAKLI (<<'LISTEOF'). Tırnaksız olsaydı kabuk
+  # içindeki `backtick` ve $değişkenleri ÇALIŞTIRIRDI. Gerçekten oldu:
+  # yorumdaki `apt install epixos-tema` backtick'i komut olarak çalıştı,
+  # apt çıktısı ("Paket listeleri okunuyor...") dosyaya yazıldı ve
+  # /etc/apt/sources.list.d/epixos.list BOZULDU.
+  cat > "$LIST" <<'LISTEOF'
 # epixOS — tema ve modül güncellemeleri (os.epix.tr)
-# Bu depo olmadan `apt install epixos-tema` çalışmaz.
-deb [signed-by=$KEYRING] https://os.epix.tr/indir/apt stable main
+# Bu depo olmadan "apt install epixos-tema" çalışmaz.
+deb [signed-by=@KEYRING@] https://os.epix.tr/indir/apt stable main
 LISTEOF
+  sed -i "s|@KEYRING@|$KEYRING|" "$LIST"
 else
   cat > "$LIST" <<LISTEOF
 # epixOS — tema ve modül güncellemeleri (os.epix.tr)
