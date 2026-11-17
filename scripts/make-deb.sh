@@ -70,6 +70,46 @@ install -m 755 "$ROOT/dist/epix-market" "$BUILD/usr/local/bin/epix-market"
 n=$(awk -F'\t' 'NF>=8' "$ROOT/dist/epix-market" | wc -l)
 ok "  epix-market ($n katalog kaydi)"
 
+# ---- epix-market-gui: ayni katalogun GTK3 arayuzu.
+# gnome-software ~120 MB bellek kullanir; bu ~35 MB. 2 GB hedefi icin onemli.
+if [[ ! -f "$ROOT/dist/epix-market-gui" ]] || [[ ! -f "$ROOT/dist/epix-market-gui.py" ]]; then
+  err "dist/epix-market-gui{,.py} YOK — once ./catalog/uret.py calistir"
+  exit 1
+fi
+
+# Kabuk baslatici PATH'te
+install -m 755 "$ROOT/dist/epix-market-gui" "$BUILD/usr/local/bin/epix-market-gui"
+
+# Gercek GTK3 arayuzu /usr/lib/epixos/ altinda.
+# NEDEN ayri: baslatici, python3/GTK eksikse anlasilir mesaj verir.
+# Dogrudan /usr/local/bin'e python betigi koymak, minimal kurulumda
+# "No such file or directory" ile sessiz olum demek.
+mkdir -p "$BUILD/usr/lib/epixos"
+install -m 644 "$ROOT/dist/epix-market-gui.py" "$BUILD/usr/lib/epixos/epix-market-gui.py"
+ok "  epix-market-gui (GTK3) + baslatici"
+
+# Masaustu kisayolu: uygulama menusunde gorunur
+mkdir -p "$BUILD/usr/share/applications"
+cat > "$BUILD/usr/share/applications/epix-market.desktop" <<'DESKEOF'
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=epixOS Mağaza
+Name[en]=epixOS Store
+GenericName=Uygulama Mağazası
+GenericName[en]=Application Store
+Comment=Uygulamaları keşfet ve kur
+Comment[en]=Browse and install applications
+Exec=epix-market-gui
+Icon=system-software-install
+Terminal=false
+Categories=System;PackageManager;GTK;
+Keywords=magaza;market;uygulama;kur;install;store;
+StartupNotify=true
+DESKEOF
+chmod 644 "$BUILD/usr/share/applications/epix-market.desktop"
+ok "  epix-market.desktop (menü kısayolu)"
+
 # ---- GPU / açılış düzeltmeleri
 # vga=791: B560/Ironlake paneli bu parametre olmadan sinyal üretmiyor.
 install -m 644 "$CHROOT/etc/default/grub.d/99-epixos.cfg" \
@@ -166,7 +206,7 @@ Architecture: $ARCH
 Maintainer: Epix Software House <destek@epix.tr>
 Installed-Size: $SIZE_KB
 Depends: systemd, openssh-server
-Recommends: xserver-xorg, gnome-core
+Recommends: xserver-xorg, gnome-core, python3-gi, gir1.2-gtk-3.0
 Homepage: https://os.epix.tr
 Description: epixOS temel yapılandırma ve araçlar
  epixOS dağıtımının temel katmanı: yardımcı komutlar (epix, epix-ssh,

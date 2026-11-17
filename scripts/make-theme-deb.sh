@@ -162,6 +162,19 @@ entry, textview, spinbutton {
   border: 1px solid #235561;
 }
 
+/* Placeholder (ipucu) metni: tanımlanmazsa GTK varsayılanı kullanır ve
+ * koyu zeminde okunmaz — ölçüldü: arama kutusunda ipucu hiç
+ * görünmüyordu, yalnız büyüteç ikonu vardı. GTK3'te `entry` üzerinde
+ * placeholder rengi `placeholder_text_color` ile verilir; ayrıca
+ * Gtk.Entry'nin PlaceholderText düğümü için doğrudan kural yazılır. */
+entry placeholder,
+entry > placeholder,
+entry.placeholder {
+  color: #7f9599;
+}
+
+@define-color placeholder_text_color #7f9599;
+
 entry:focus {
   border-color: @epix_lime;
 }

@@ -1,0 +1,637 @@
+#!/usr/bin/env python3
+# epix-market-gui — epixOS uygulama mağazası (GTK3 arayüzü)
+#
+# NEDEN GTK3: gnome-software ~120 MB bellek kullanır ve 2 GB hedefli
+# bir dağıtımda bu lüks değil. Bu arayüz aynı kataloğu (epix-market ile
+# ortak) okur, ~35 MB bellek kullanır ve ek bağımlılık getirmez —
+# python3-gi + GTK3 zaten GNOME ile gelir.
+#
+# KATALOG: veri gömülüdür (@KATALOG@ yerine derleme sırasında
+# catalog/katalog.json'dan üretilir). Ağ gerekmez; böylece "ne var?"
+# sorusu internet olmadan da yanıtlanır.
+#
+# Kullanım:
+#   epix-market-gui            arayüzü aç
+#   epix-market-gui --kontrol  kataloğu doğrula (ayrıştırma testi)
+import sys
+
+try:
+    import gi
+    gi.require_version("Gtk", "3.0")
+    gi.require_version("Gdk", "3.0")
+    from gi.repository import Gtk, Gdk, GLib, Pango
+except (ImportError, ValueError) as e:
+    sys.stderr.write(
+        "epix-market-gui: GTK3 bağlantıları bulunamadı.\n"
+        "  Kurmak için: sudo apt install python3-gi gir1.2-gtk-3.0\n"
+        f"  Ayrıntı: {e}\n"
+        "  Terminal sürümü her zaman çalışır: epix-market\n"
+    )
+    sys.exit(1)
+
+import os
+import shutil
+import subprocess
+import threading
+
+# ---------------------------------------------------------------- katalog
+# Üretim sırasında catalog/katalog.json'dan gömülür.
+# Biçim: kategori_id \t kategori_ad \t paket \t başlık \t boyut_mb \t
+#        epix(0|1) \t etiketler \t açıklama
+HAM_KATALOG = """@KATALOG@"""
+
+
+def katalog_ayristir(ham):
+    """Satırları sözlüklere çevir. Bozuk satır sessizce atlanmaz."""
+    uygulamalar = []
+    hatalar = []
+    for i, satir in enumerate(ham.splitlines(), 1):
+        if not satir.strip():
+            continue
+        alanlar = satir.split("\t")
+        if len(alanlar) < 8:
+            hatalar.append(f"satır {i}: {len(alanlar)} alan (8 beklenir)")
+            continue
+        kid, kad, paket, ad, boyut, epix, etiketler, aciklama = alanlar[:8]
+        try:
+            boyut_f = float(boyut) if boyut else 0.0
+        except ValueError:
+            boyut_f = 0.0
+        uygulamalar.append(
+            {
+                "kategori": kid,
+                "kategori_ad": kad,
+                "paket": paket,
+                "ad": ad,
+                "boyut": boyut_f,
+                "epix": epix == "1",
+                "etiketler": etiketler.split(),
+                "aciklama": aciklama,
+                "arama": " ".join(
+                    [ad, paket, aciklama, etiketler]
+                ).lower(),
+            }
+        )
+    return uygulamalar, hatalar
+
+
+def boyut_metni(mb):
+    if not mb:
+        return ""
+    if mb < 1:
+        return f"~{int(mb * 1024)} KB"
+    return f"~{mb:g} MB"
+
+
+# Arama kutusu ipucu metni (modül düzeyinde: metotlar da kullanıyor)
+ARAMA_IPUCU = "Uygulama ara: fotoğraf, video, pdf…"
+
+
+# ---------------------------------------------------------------- yardımcı
+def kurulu_mu(paket):
+    """dpkg-query ile kurulu mu? Hata durumunda False (sessiz geçme)."""
+    try:
+        r = subprocess.run(
+            ["dpkg-query", "-W", "-f=${Status}", paket],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        return r.returncode == 0 and "install ok installed" in r.stdout
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def depo_kurulu_mu():
+    """epixOS deposu tanımlı mı?"""
+    for yol in (
+        "/etc/apt/sources.list.d/epixos.list",
+        "/etc/apt/sources.list.d/epixos.sources",
+    ):
+        try:
+            with open(yol, encoding="utf-8", errors="replace") as f:
+                icerik = f.read()
+            # yalnızca ETKİN satır sayılır (yorumlanmış satır depo kurulu demek değil)
+            for satir in icerik.splitlines():
+                s = satir.strip()
+                if s and not s.startswith("#") and "os.epix.tr" in s:
+                    return True
+        except OSError:
+            continue
+    return False
+
+
+def kabuk_kacis(metin):
+    """sh -c için tek tırnak kaçışı."""
+    return "'" + metin.replace("'", "'\\''") + "'"
+
+
+# ---------------------------------------------------------------- arayüz
+class Market(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="epixOS Uygulama Mağazası")
+        self.set_default_size(1080, 720)
+        self.set_position(Gtk.WindowPosition.CENTER)
+
+        self.uygulamalar, hatalar = katalog_ayristir(HAM_KATALOG)
+        if hatalar:
+            # Katalog bozuksa kullanıcıya söyle — sessizce eksik liste gösterme
+            sys.stderr.write(
+                "epix-market-gui: katalog satır hataları:\n  "
+                + "\n  ".join(hatalar)
+                + "\n"
+            )
+
+        self.secili_kategori = "hepsi"
+        self.sorgu = ""
+        self._kurulum_calisiyor = False
+
+        self._kur()
+
+    # ------------------------------------------------------------ iskelet
+    def _kur(self):
+        bas = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.add(bas)
+
+        # ---- üst çubuk: arama + depo durumu
+        ust = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        ust.set_margin_top(12)
+        ust.set_margin_bottom(10)
+        ust.set_margin_start(16)
+        ust.set_margin_end(16)
+        bas.pack_start(ust, False, False, 0)
+
+        # YAKLAŞIM: Gtk.Overlay + ayrı etiket.
+        #
+        # NEDEN: iki yol denendi ve İKİSİ DE kullanıcıya bozuk göründü:
+        #   1) set_placeholder_text() — epixOS-dark'ta hiç çizilmedi
+        #   2) set_text(ipucu) + odak temizliği — set_text() metni
+        #      TÜMÜYLE SEÇİLİ bırakıyor, ipucu lime zeminli seçim olarak
+        #      görünüyordu; select_region(0,0) bunu düzeltmedi çünkü GTK
+        #      changed sinyalinden sonra yeniden seçiyor.
+        # Overlay ile Entry her zaman boş kalır; ipucu ayrı bir etikettir
+        # ve seçim/odak durumundan etkilenmez.
+        arama_kutu = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        arama_kutu.set_hexpand(True)
+
+        ikon = Gtk.Image.new_from_icon_name("edit-find-symbolic", Gtk.IconSize.BUTTON)
+        ikon.set_valign(Gtk.Align.CENTER)
+        arama_kutu.pack_start(ikon, False, False, 0)
+
+        kaplama = Gtk.Overlay()
+        kaplama.set_hexpand(True)
+
+        self.arama = Gtk.Entry()
+        self.arama.set_hexpand(True)
+        self.arama.set_tooltip_text("Ad, açıklama veya etikete göre ara")
+        self.arama.connect("changed", self._arama_degisti)
+        kaplama.add(self.arama)
+
+        self.arama_ipucu = Gtk.Label(label=ARAMA_IPUCU)
+        self.arama_ipucu.set_xalign(0)
+        self.arama_ipucu.set_halign(Gtk.Align.START)
+        self.arama_ipucu.set_valign(Gtk.Align.CENTER)
+        self.arama_ipucu.set_margin_start(9)
+        self.arama_ipucu.set_margin_end(9)
+        self.arama_ipucu.set_ellipsize(Pango.EllipsizeMode.END)
+        # Tıklamalar Entry'ye geçsin (etiket araya girmesin)
+        self.arama_ipucu.set_can_focus(False)
+        self.arama_ipucu.add_events(0)
+        ipucu_css = Gtk.CssProvider()
+        ipucu_css.load_from_data(
+            b"label.ipucu { color: #7f9599; font-style: italic; }"
+        )
+        self.arama_ipucu.get_style_context().add_class("ipucu")
+        self.arama_ipucu.get_style_context().add_provider(
+            ipucu_css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+        # overlay_child: Entry'nin ÜSTÜNE koy
+        kaplama.add_overlay(self.arama_ipucu)
+        kaplama.set_overlay_pass_through(self.arama_ipucu, True)
+
+        # İpucu görünürlüğü: Entry boşsa göster
+        def _ipucu_guncelle(*_):
+            bos = not self.arama.get_text()
+            self.arama_ipucu.set_visible(bos)
+
+        self.arama.connect("changed", _ipucu_guncelle)
+        _ipucu_guncelle()
+
+        arama_kutu.pack_start(kaplama, True, True, 0)
+
+        temizle = Gtk.Button.new_from_icon_name("edit-clear-symbolic", Gtk.IconSize.BUTTON)
+        temizle.set_relief(Gtk.ReliefStyle.NONE)
+        temizle.set_tooltip_text("Aramayı temizle")
+        temizle.connect("clicked", lambda *_: self.arama.set_text(""))
+        arama_kutu.pack_start(temizle, False, False, 0)
+
+        ust.pack_start(arama_kutu, True, True, 0)
+
+        self.depo_etiketi = Gtk.Label()
+        self.depo_etiketi.set_use_markup(True)
+        if depo_kurulu_mu():
+            self.depo_etiketi.set_markup(
+                '<small><span foreground="#3a7a1f">●</span> epixOS deposu etkin</small>'
+            )
+        else:
+            self.depo_etiketi.set_markup(
+                '<small><span foreground="#b08000">●</span> epixOS deposu yok</small>'
+            )
+        ust.pack_start(self.depo_etiketi, False, False, 0)
+
+        bas.pack_start(Gtk.Separator(), False, False, 0)
+
+        # ---- orta: kategori kenarı + liste
+        orta = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        bas.pack_start(orta, True, True, 0)
+
+        # kategori listesi
+        kaydirma_sol = Gtk.ScrolledWindow()
+        kaydirma_sol.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        kaydirma_sol.set_size_request(215, -1)
+        orta.pack_start(kaydirma_sol, False, False, 0)
+
+        self.kat_listesi = Gtk.ListBox()
+        self.kat_listesi.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.kat_listesi.connect("row-selected", self._kategori_secildi)
+        kaydirma_sol.add(self.kat_listesi)
+
+        # "Hepsi" + kategoriler
+        self._kategori_satiri_ekle("hepsi", "Hepsi", len(self.uygulamalar))
+        sayilar = {}
+        adlar = {}
+        for u in self.uygulamalar:
+            sayilar[u["kategori"]] = sayilar.get(u["kategori"], 0) + 1
+            adlar[u["kategori"]] = u["kategori_ad"]
+        for kid, kad in adlar.items():
+            self._kategori_satiri_ekle(kid, kad, sayilar.get(kid, 0))
+
+        orta.pack_start(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 0)
+
+        # uygulama listesi
+        kaydirma = Gtk.ScrolledWindow()
+        kaydirma.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        kaydirma.set_hexpand(True)
+        orta.pack_start(kaydirma, True, True, 0)
+
+        self.liste = Gtk.ListBox()
+        self.liste.set_selection_mode(Gtk.SelectionMode.NONE)
+        self.liste.set_header_func(self._baslik_ayirici)
+        kaydirma.add(self.liste)
+
+        bas.pack_start(Gtk.Separator(), False, False, 0)
+
+        # ---- alt çubuk: durum + eylemler
+        alt = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        alt.set_margin_top(10)
+        alt.set_margin_bottom(12)
+        alt.set_margin_start(16)
+        alt.set_margin_end(16)
+        bas.pack_start(alt, False, False, 0)
+
+        self.durum = Gtk.Label()
+        self.durum.set_xalign(0)
+        self.durum.set_ellipsize(Pango.EllipsizeMode.END)
+        self.durum.set_hexpand(True)
+        self.durum.set_markup(
+            '<small>Katalog gömülüdür — liste için internet gerekmez. '
+            "Kurulum için gerekir.</small>"
+        )
+        alt.pack_start(self.durum, True, True, 0)
+
+        self.yenile_dugmesi = Gtk.Button(label="Yenile")
+        self.yenile_dugmesi.set_tooltip_text("Kurulu durumları yeniden tara")
+        self.yenile_dugmesi.connect("clicked", lambda *_: self._listeyi_doldur())
+        alt.pack_start(self.yenile_dugmesi, False, False, 0)
+
+        # İlk kategori seçimi EN SONA: artık self.liste ve tüm widget'lar var
+        if getattr(self, "_ilk_satir", None) is not None:
+            self.kat_listesi.select_row(self._ilk_satir)
+            self._ilk_satir = None
+
+        self._listeyi_doldur()
+
+    def _kategori_satiri_ekle(self, kid, ad, sayi):
+        kutu = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        kutu.set_margin_top(6)
+        kutu.set_margin_bottom(6)
+        kutu.set_margin_start(10)
+        kutu.set_margin_end(10)
+        e = Gtk.Label(label=ad)
+        e.set_xalign(0)
+        e.set_hexpand(True)
+        kutu.pack_start(e, True, True, 0)
+        s = Gtk.Label()
+        s.set_markup(f'<small><span foreground="#7a8a8c">{sayi}</span></small>')
+        kutu.pack_start(s, False, False, 0)
+        satir = Gtk.ListBoxRow()
+        satir.kategori_id = kid
+        satir.add(kutu)
+        self.kat_listesi.add(satir)
+        if kid == "hepsi":
+            # DİKKAT: select_row() "row-selected" sinyalini HEMEN tetikler.
+            # Bu noktada self.liste henüz oluşmadığı için _listeyi_doldur()
+            # AttributeError ile çöküyor ve __init__ yarıda kalıyordu.
+            # Belirti: süreç ayakta, ama HİÇ pencere çizilmiyor (X istemcisi
+            # yok). Gerçek ölçüm: xlsclients boş, xwininfo yalnız kök pencere.
+            self._ilk_satir = satir
+
+    # ------------------------------------------------------------ süzme
+    def _bolum_basligi(self, metin):
+        h = Gtk.Label()
+        h.set_markup(
+            f'<b>{GLib.markup_escape_text(metin)}</b>'
+        )
+        h.set_xalign(0)
+        h.set_margin_top(14)
+        h.set_margin_bottom(4)
+        h.set_margin_start(6)
+        return h
+
+    def _kok_dugum(self, widget):
+        """ListBoxRow içindeki gerçek kapsayıcıyı bul."""
+        cocuk = widget.get_child()
+        return cocuk if cocuk is not None else widget
+
+    def _eslesenler(self):
+        sonuc = []
+        for u in self.uygulamalar:
+            if self.secili_kategori != "hepsi" and u["kategori"] != self.secili_kategori:
+                continue
+            if self.sorgu and self.sorgu not in u["arama"]:
+                continue
+            sonuc.append(u)
+        return sonuc
+
+    def _listeyi_doldur(self):
+        for cocuk in list(self.liste.get_children()):
+            self.liste.remove(cocuk)
+
+        eslesen = self._eslesenler()
+
+        if not eslesen:
+            bos = Gtk.Label()
+            bos.set_markup(
+                "<big>Eşleşen uygulama yok</big>\n\n"
+                "<small>Farklı bir kelime dene ya da kategoriyi değiştir.</small>"
+            )
+            bos.set_justify(Gtk.Justification.CENTER)
+            bos.set_margin_top(60)
+            bos.set_margin_bottom(60)
+            satir = Gtk.ListBoxRow()
+            satir.set_activatable(False)
+            satir.set_selectable(False)
+            satir.add(bos)
+            self.liste.add(satir)
+        else:
+            # Kategori başlıklarıyla grupla (yalnızca "Hepsi" görünümünde)
+            son_kat = None
+            for u in eslesen:
+                if self.secili_kategori == "hepsi" and u["kategori"] != son_kat:
+                    son_kat = u["kategori"]
+                    bas_satir = Gtk.ListBoxRow()
+                    bas_satir.set_activatable(False)
+                    bas_satir.set_selectable(False)
+                    bas_satir.add(self._bolum_basligi(u["kategori_ad"]))
+                    self.liste.add(bas_satir)
+                self.liste.add(self._uygulama_satiri(u))
+
+        self.liste.show_all()
+        self._durum_guncelle(len(eslesen))
+
+    def _uygulama_satiri(self, u):
+        satir = Gtk.ListBoxRow()
+        satir.set_activatable(False)
+        satir.set_selectable(False)
+        satir.uygulama = u
+
+        kutu = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
+        kutu.set_margin_top(10)
+        kutu.set_margin_bottom(10)
+        kutu.set_margin_start(12)
+        kutu.set_margin_end(12)
+
+        # ---- sol: metin
+        sol = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+        sol.set_hexpand(True)
+
+        baslik = Gtk.Label()
+        rozet = ""
+        if u["epix"]:
+            rozet = '  <span foreground="#16404b" background="#e2ff5e"> epixOS </span>'
+        baslik.set_markup(
+            f'<b>{GLib.markup_escape_text(u["ad"])}</b>{rozet}'
+        )
+        baslik.set_xalign(0)
+        baslik.set_ellipsize(Pango.EllipsizeMode.END)
+        sol.pack_start(baslik, False, False, 0)
+
+        aciklama = Gtk.Label()
+        aciklama.set_markup(
+            f'<span foreground="#56676a"><small>{GLib.markup_escape_text(u["aciklama"])}</small></span>'
+        )
+        aciklama.set_xalign(0)
+        aciklama.set_line_wrap(True)
+        aciklama.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
+        aciklama.set_max_width_chars(78)
+        sol.pack_start(aciklama, False, False, 0)
+
+        # alt bilgi: paket + boyut
+        parcalar = [f'<tt>{GLib.markup_escape_text(u["paket"])}</tt>']
+        bm = boyut_metni(u["boyut"])
+        if bm:
+            parcalar.append(GLib.markup_escape_text(bm))
+        bilgi = Gtk.Label()
+        bilgi.set_markup(
+            f'<small><span foreground="#8a9a9c">{"  ·  ".join(parcalar)}</span></small>'
+        )
+        bilgi.set_xalign(0)
+        sol.pack_start(bilgi, False, False, 0)
+
+        kutu.pack_start(sol, True, True, 0)
+
+        # ---- sağ: durum + kur düğmesi
+        sag = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        sag.set_valign(Gtk.Align.CENTER)
+        sag.set_halign(Gtk.Align.END)
+        # Düğmeler sağa taşmasın: sabit genişlik + sağa hizalama
+        sag.set_size_request(96, -1)
+
+        kurulu = kurulu_mu(u["paket"])
+
+        durum = Gtk.Label()
+        if kurulu:
+            durum.set_markup('<small><span foreground="#3a7a1f">✓ kurulu</span></small>')
+        durum.set_halign(Gtk.Align.CENTER)
+        sag.pack_start(durum, False, False, 0)
+
+        dugme = Gtk.Button()
+        dugme.set_halign(Gtk.Align.FILL)
+        if kurulu:
+            dugme.set_label("Kaldır")
+            dugme.set_tooltip_text(f"sudo apt remove {u['paket']}")
+            dugme.connect("clicked", self._kaldir_tiklandi, u)
+        else:
+            dugme.set_label("Kur")
+            dugme.set_tooltip_text(f"sudo apt install {u['paket']}")
+            dugme.get_style_context().add_class("suggested-action")
+            dugme.connect("clicked", self._kur_tiklandi, u)
+        sag.pack_start(dugme, False, False, 0)
+
+        kutu.pack_start(sag, False, False, 0)
+
+        satir.add(kutu)
+        return satir
+
+    def _durum_guncelle(self, adet):
+        if self._kurulum_calisiyor:
+            return
+        self.durum.set_markup(
+            f'<small>{adet} uygulama</small>'
+        )
+
+    # ------------------------------------------------------------ olaylar
+    def _arama_degisti(self, entry):
+        # Türkçe küçük harf: 'I' -> 'ı' olmalı, yoksa "ISO" araması
+        # "ıso" ile eşleşmez. Python'da lower() bunu yapmaz.
+        ham = entry.get_text().strip()
+        self.sorgu = ham.replace("I", "ı").replace("İ", "i").lower()
+        self._listeyi_doldur()
+
+    def _kategori_secildi(self, liste, satir):
+        if satir is None:
+            return
+        self.secili_kategori = satir.kategori_id
+        self._listeyi_doldur()
+
+    def _baslik_ayirici(self, satir, onceki):
+        # Bölüm başlıklarının üstüne ince çizgi (yalnızca başlıklardan sonra)
+        if onceki is not None and hasattr(satir, "uygulama"):
+            satir.set_header(Gtk.Separator())
+        elif onceki is not None:
+            satir.set_header(Gtk.Separator())
+        else:
+            satir.set_header(None)
+
+    # ------------------------------------------------------------ kurulum
+    def _yetki_var_mi(self):
+        """Root isek pkexec gerekmez."""
+        return os.geteuid() == 0
+
+    def _komut_calistir_gui(self, komut, baslik):
+        """
+        Yetki gerektiren komutu görünür bir uçbirimde çalıştır.
+
+        NEDEN uçbirim: kurulum dakikalar sürebilir ve kullanıcı ilerlemeyi
+        görmeli. Sessiz çalıştırma + donmuş arayüz kötü deneyim olurdu.
+        """
+        if self._kurulum_calisiyor:
+            self._uyar("Zaten bir kurulum sürüyor. Bitmesini bekle.")
+            return
+
+        if not self._yetki_var_mi() and shutil.which("pkexec") is None:
+            self._uyar(
+                "pkexec bulunamadı. Kurulumu uçbirimde elle yap:\n\n" + komut
+            )
+            return
+
+        on = "pkexec " if not self._yetki_var_mi() else ""
+        # Uçbirimde: komutu çalıştır, sonucu göster, bitince bekle
+        ic = (
+            f"{on}{komut}; "
+            "kod=$?; "
+            'echo; '
+            'if [ $kod -eq 0 ]; then echo "=== TAMAM ==="; '
+            'else echo "=== HATA (kod $kod) ==="; fi; '
+            'echo "Kapatmak için Enter"; read _'
+        )
+
+        terminal = None
+        for aday in ("x-terminal-emulator", "gnome-terminal", "xterm"):
+            if shutil.which(aday):
+                terminal = aday
+                break
+
+        try:
+            if terminal == "gnome-terminal":
+                subprocess.Popen(
+                    ["gnome-terminal", "--title", baslik, "--", "sh", "-c", ic]
+                )
+            elif terminal:
+                subprocess.Popen([terminal, "-e", f"sh -c {kabuk_kacis(ic)}"])
+            else:
+                # uçbirim yoksa pkexec'in kendi iletişim kutusuna bırak
+                subprocess.Popen(["sh", "-c", ic])
+        except OSError as e:
+            self._uyar(f"Uçbirim açılamadı: {e}\n\nKomutu elle çalıştır:\n{komut}")
+            return
+
+        self._kurulum_calisiyor = True
+        self.durum.set_markup("<small>Kurulum penceresi açıldı…</small>")
+        self.yenile_dugmesi.set_sensitive(False)
+
+        # Kurulum bitince listeyi tazele (uçbirim kapanmasını beklemeden
+        # makul bir süre sonra tara; kullanıcı Yenile'ye de basabilir).
+        GLib.timeout_add_seconds(4, self._kurulum_sonrasi_tara)
+
+    def _kurulum_sonrasi_tara(self):
+        if not self._kurulum_calisiyor:
+            return False
+        self._kurulum_calisiyor = False
+        self.yenile_dugmesi.set_sensitive(True)
+        self._listeyi_doldur()
+        return False
+
+    def _kur_tiklandi(self, dugme, u):
+        # epixOS deposu gerekiyorsa ve yoksa önce onu söyle
+        if u["epix"] and not depo_kurulu_mu():
+            self._uyar(
+                f"<b>{GLib.markup_escape_text(u['ad'])}</b> epixOS deposundan geliyor "
+                "ama depo kurulu değil.\n\n"
+                "Önce depoyu kur:\n\n"
+                '<tt>curl -fsSL https://os.epix.tr/indir/epix-depo-kur.sh | sudo sh</tt>'
+            )
+            return
+        self._komut_calistir_gui(
+            f"apt-get install -y {u['paket']}",
+            f"Kurulum: {u['ad']}",
+        )
+
+    def _kaldir_tiklandi(self, dugme, u):
+        self._komut_calistir_gui(
+            f"apt-get remove -y {u['paket']}",
+            f"Kaldırma: {u['ad']}",
+        )
+
+    def _uyar(self, mesaj):
+        d = Gtk.MessageDialog(
+            transient_for=self,
+            flags=0,
+            message_type=Gtk.MessageType.INFO,
+            buttons=Gtk.ButtonsType.OK,
+            text="epixOS Mağaza",
+        )
+        d.format_secondary_markup(mesaj)
+        d.run()
+        d.destroy()
+
+
+# ---------------------------------------------------------------- giriş
+def main():
+    if "--kontrol" in sys.argv:
+        uygulamalar, hatalar = katalog_ayristir(HAM_KATALOG)
+        if hatalar:
+            sys.stderr.write("KATALOG HATASI:\n  " + "\n  ".join(hatalar) + "\n")
+            return 1
+        print(f"katalog geçerli: {len(uygulamalar)} uygulama")
+        return 0
+
+    w = Market()
+    w.connect("destroy", Gtk.main_quit)
+    w.show_all()
+    Gtk.main()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

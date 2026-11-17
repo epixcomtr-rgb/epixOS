@@ -162,6 +162,24 @@ Tek kaynak: `catalog/katalog.json`. Bir uygulamayı oraya ekleyince
 > olarak ayrışırdı ve sitede gösterilen komut çalışmazdı. Üretici,
 > kategori kimliği ve paket adı tekrarlarını da denetler.
 
+### Grafik arayüz
+
+```bash
+epix-market-gui                # veya uygulama menüsünden "epixOS Mağaza"
+```
+
+GTK3 arayüzü: kategori sütunu, canlı arama, kart başına **Kur** / **Kaldır**
+düğmesi, kurulu durumu otomatik tespit. Kurulum görünür bir uçbirimde
+çalışır (`pkexec` ile yetki ister) — ilerlemeyi görürsün.
+
+> **Neden gnome-software değil:** mağaza uygulaması ~120 MB bellek
+> kullanır; 2 GB hedefli bir dağıtımda bu lüks değil. Bu arayüz aynı
+> kataloğu okur ve ~35 MB kullanır. `python3-gi` + GTK3 zaten GNOME ile
+> gelir, ek bağımlılık yok.
+
+`python3`/GTK eksikse başlatıcı sessizce ölmez; ne kuracağını söyler ve
+terminal sürümüne yönlendirir.
+
 ### Terminalde
 
 ```bash

@@ -29,6 +29,9 @@ KATALOG = ROOT / "catalog" / "katalog.json"
 KOMUT_CIKTI = ROOT / "dist" / "epix-market"
 SITE_CIKTI = ROOT / "site" / "market" / "index.html"
 SABLON = ROOT / "catalog" / "epix-market.sh.in"
+GUI_SABLON = ROOT / "catalog" / "epix-market-gui.py.in"
+GUI_CIKTI = ROOT / "dist" / "epix-market-gui"          # kabuk sarıcı (755)
+GUI_PY_CIKTI = ROOT / "dist" / "epix-market-gui.py"   # GTK3 arayüzü (644)
 
 
 def hata(mesaj: str, *ayrinti: str) -> None:
@@ -147,6 +150,103 @@ def komut_uret(veri: dict) -> None:
     KOMUT_CIKTI.chmod(0o755)
     print(f"  \033[32m==>\033[0m {KOMUT_CIKTI.relative_to(ROOT)}  "
           f"({len(veri['uygulamalar'])} uygulama)")
+
+
+def gui_uret(veri: dict) -> None:
+    """GTK3 arayüzü — katalog yine gömülü, aynı biçim."""
+    if not GUI_SABLON.is_file():
+        hata(f"GUI şablonu bulunamadı: {GUI_SABLON}")
+
+    sablon = GUI_SABLON.read_text(encoding="utf-8")
+
+    # SADECE `HAM_KATALOG = """@KATALOG@"""` içindeki yer tutucu.
+    # Şablonun yorumunda da "@KATALOG@" geçiyor; naive replace() onu da
+    # kataloğun tamamıyla doldurup Python'u bozar (epix-market.sh'te
+    # birebir aynı hata yaşandı).
+    desen = re.compile(r'(HAM_KATALOG = """)@KATALOG@(""")')
+    if not desen.search(sablon):
+        hata(
+            "GUI şablonunda HAM_KATALOG içinde @KATALOG@ bulunamadı",
+            'beklenen biçim: HAM_KATALOG = """@KATALOG@"""',
+            str(GUI_SABLON),
+        )
+
+    gomulu = "\n".join(katalog_satirlari(veri))
+    # lambda: gomulu içindeki \1 gibi dizilerin geri referans sayılmaması için
+    cikti = desen.sub(lambda m: m.group(1) + gomulu + m.group(2), sablon, count=1)
+
+    # Python sözdizimini ÜRETİM ANINDA doğrula: bozuk bir arayüz
+    # kullanıcıya "açılmıyor" olarak yansır, sebebi görünmez.
+    try:
+        compile(cikti, str(GUI_CIKTI), "exec")
+    except SyntaxError as e:
+        hata(
+            "üretilen GUI betiği geçersiz Python",
+            f"satır {e.lineno}: {e.msg}",
+            "şablon: catalog/epix-market-gui.py.in",
+        )
+
+    GUI_CIKTI.parent.mkdir(parents=True, exist_ok=True)
+    GUI_PY_CIKTI.write_text(cikti, encoding="utf-8")
+    GUI_PY_CIKTI.chmod(0o644)
+
+    # Kabuk sarmalayıcı: python3 veya GTK yoksa SESSİZCE ölmesin.
+    #
+    # NEDEN: --no-install-recommends ile kurulan minimal sistemlerde
+    # python3 hiç yok (ölçüldü: debootstrap minbase + epixos-base).
+    # O durumda "#! /usr/bin/env python3" satırı "No such file or
+    # directory" verir ve .desktop kısayoluna tıklayan kullanıcı hiçbir
+    # şey görmez. Sarmalayıcı durumu anlatıp terminal sürümüne yönlendirir.
+    sarmalayici = """#!/bin/sh
+# epix-market-gui — epixOS Mağaza başlatıcı
+#
+# Gerçek arayüz /usr/lib/epixos/epix-market-gui.py dosyasındadır.
+# Bu sarmalayıcı, eksik bağımlılık durumunda SESSİZCE ölmek yerine
+# ne yapılacağını söyler (minimal kurulumlarda python3 olmayabilir).
+set -u
+
+PY=/usr/lib/epixos/epix-market-gui.py
+
+if [ ! -f "$PY" ]; then
+  echo "epix-market-gui: arayüz dosyası bulunamadı: $PY" >&2
+  echo "  Yeniden kur: sudo apt install --reinstall epixos-base" >&2
+  exit 1
+fi
+
+if ! command -v python3 >/dev/null 2>&1; then
+  cat >&2 <<'MSG'
+epix-market-gui: python3 bulunamadı.
+
+Grafik arayüz için gerekli:
+    sudo apt install python3 python3-gi gir1.2-gtk-3.0
+
+Terminal sürümü her zaman çalışır:
+    epix-market            (kategori özeti)
+    epix-market liste      (tüm uygulamalar)
+MSG
+  exit 1
+fi
+
+# GTK3 bağlantısı var mı? Yoksa anlaşılır mesaj ver.
+if ! python3 -c 'import gi; gi.require_version("Gtk","3.0")' >/dev/null 2>&1; then
+  cat >&2 <<'MSG'
+epix-market-gui: GTK3 bağlantıları eksik.
+
+    sudo apt install python3-gi gir1.2-gtk-3.0
+
+Terminal sürümü: epix-market
+MSG
+  exit 1
+fi
+
+exec python3 "$PY" "$@"
+"""
+    GUI_CIKTI.write_text(sarmalayici, encoding="utf-8")
+    GUI_CIKTI.chmod(0o755)
+
+    print(f"  \033[32m==>\033[0m {GUI_CIKTI.relative_to(ROOT)}  (başlatıcı)")
+    print(f"  \033[32m==>\033[0m {GUI_PY_CIKTI.relative_to(ROOT)}  "
+          f"({len(veri['uygulamalar'])} uygulama, GTK3)")
 
 
 def site_uret(veri: dict) -> None:
@@ -465,6 +565,7 @@ def main() -> None:
         return
 
     komut_uret(veri)
+    gui_uret(veri)
     site_uret(veri)
 
     print(f"\n  sonraki adım: ./scripts/deploy-site.sh   (siteyi yayınlar)")
