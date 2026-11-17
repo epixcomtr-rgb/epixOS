@@ -125,8 +125,11 @@
     <div class="dl-up" style="margin-bottom:26px">
       <h3><span class="dl-badge">Önerilen</span> İmzalı APT deposu</h3>
       <p>Bir kez kurulur; sonrasında <code>sudo epix-update</code> ile tüm
-         düzeltmeler gelir. Depo GPG ile imzalıdır — paketin gerçekten bizden
+         düzeltmeler gelir. Depo GPG ile imzalanmıştır — paketin gerçekten bizden
          geldiği kriptografik olarak doğrulanır.</p>
+      <p><b>En kolay yol</b> — tek komut, anahtarı ve depoyu kendisi kurar:</p>
+      <pre><code>curl -fsSL https://os.epix.tr/indir/epix-depo-kur.sh | sudo sh</code></pre>
+      <p style="margin-top:18px">Elle kurmak istersen:</p>
       <pre><code># 1) imza anahtarı
 curl -fsSL https://os.epix.tr/indir/apt/epixos-archive-keyring.gpg \
   | sudo tee /usr/share/keyrings/epixos-archive-keyring.gpg &gt;/dev/null
@@ -138,6 +141,18 @@ curl -fsSL https://os.epix.tr/indir/apt/epixos.list \
 # 3) güncelle
 sudo apt update
 sudo epix-update</code></pre>
+
+      <h3 style="margin-top:26px">Marka teması</h3>
+      <p>Depo kurulduktan sonra tema tek komutla gelir. GTK3/GTK4 renkleri,
+         GNOME vurguları ve üç duvar kağıdı (koyu / açık / sade):</p>
+      <pre><code>sudo apt install epixos-tema
+epix-tema                      # uygula
+epix-tema --liste              # neler var</code></pre>
+      <p style="font-size:13px;opacity:.75;margin-top:10px">
+         Renkler gerçek logodan örneklendi: lime <code>#e2ff5e</code>,
+         navy <code>#16404b</code>, deep <code>#0e2a31</code>. Tema ISO'yu
+         yeniden kurmadan güncellenir.
+      </p>
       <div class="dl-up-note">
         <span class="ms" aria-hidden="true">verified_user</span>
         <div>

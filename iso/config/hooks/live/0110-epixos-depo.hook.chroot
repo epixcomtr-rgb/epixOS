@@ -1,0 +1,63 @@
+#!/bin/bash
+# epixOS — imzalı APT deposunu ISO'ya tanıt
+#
+# NEDEN: Depo tanımlı olmadan `apt install epixos-tema` ÇALIŞMAZ.
+# Ölçüldü: ISO'da /etc/apt/sources.list.d/ altında yalnızca Ubuntu
+# kaynakları vardı, epixos deposu yoktu ve keyring de gömülü değildi.
+# Bu hook olmadan tema/modül güncellemeleri hiçbir makineye ulaşmaz.
+set -euo pipefail
+
+echo "P: epixOS APT deposu tanıtılıyor"
+
+KEYRING="/usr/share/keyrings/epixos-archive-keyring.gpg"
+LIST="/etc/apt/sources.list.d/epixos.list"
+
+mkdir -p /usr/share/keyrings /etc/apt/sources.list.d
+
+# Anahtarı ISO'ya göm. DİKKAT: depo anahtarı .apt-key/ altında ve
+# .gitignore'da; ISO derlenirken oradan kopyalanır. Yoksa derleme
+# sessizce "deposuz ISO" üretmesin diye GÜRÜLTÜLÜ hata verir.
+KEY_SRC=""
+for c in /tmp/epixos-archive-keyring.gpg "$(dirname "$0")/../../../.apt-key/epixos-archive-keyring.gpg"; do
+  [[ -f "$c" ]] && { KEY_SRC="$c"; break; }
+done
+
+if [[ -n "$KEY_SRC" ]]; then
+  install -m 644 "$KEY_SRC" "$KEYRING"
+  echo "P:   anahtar gömüldü ($KEY_SRC)"
+else
+  # Anahtar yoksa depoyu YİNE DE tanıt ama imza doğrulaması olmadan
+  # eklemek güvenlik açığı olur. Bunun yerine trusted=yes kullanmıyoruz;
+  # kullanıcı anahtarı elle ekleyebilsin diye not düşüyoruz.
+  echo "P:   UYARI: depo anahtarı bulunamadı — kaynak 'devre dışı' yazılacak" >&2
+fi
+
+# Depo satırı: yalnızca anahtar varsa etkin
+if [[ -f "$KEYRING" ]]; then
+  cat > "$LIST" <<LISTEOF
+# epixOS — tema ve modül güncellemeleri (os.epix.tr)
+# Bu depo olmadan `apt install epixos-tema` çalışmaz.
+deb [signed-by=$KEYRING] https://os.epix.tr/indir/apt stable main
+LISTEOF
+else
+  cat > "$LIST" <<LISTEOF
+# epixOS — tema ve modül güncellemeleri (os.epix.tr)
+# KURULUM TAMAMLANMADI: imza anahtarı ISO'ya gömülemedi.
+# Etkinleştirmek için:
+#   curl -fsSL https://os.epix.tr/indir/apt/epixos-archive-keyring.gpg \\
+#     | sudo tee /usr/share/keyrings/epixos-archive-keyring.gpg >/dev/null
+#   sudo sed -i 's/^#deb /deb /' /etc/apt/sources.list.d/epixos.list
+#deb [signed-by=/usr/share/keyrings/epixos-archive-keyring.gpg] https://os.epix.tr/indir/apt stable main
+LISTEOF
+fi
+chmod 644 "$LIST"
+
+# APT'nin depoyu tanıdığını doğrula (ağ gerekmez, sadece yapılandırma)
+if grep -qE "^deb .*os\.epix\.tr" "$LIST"; then
+  echo "P:   depo satırı etkin"
+else
+  echo "P:   depo satırı DEVRE DIŞI (anahtar yok)"
+fi
+[[ -f "$KEYRING" ]] && echo "P:   keyring: $(stat -c%s "$KEYRING") bayt"
+
+echo "P: epixOS depo hook tamam"

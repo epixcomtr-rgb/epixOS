@@ -83,6 +83,40 @@ inf "3/6 Packages indeksi"
 gzip -9 -kf "$REPO/dists/$SUITE/$COMP/binary-$ARCH/Packages"
 ok "  $(grep -c '^Package:' "$REPO/dists/$SUITE/$COMP/binary-$ARCH/Packages") paket indekslendi"
 
+# by-hash: içerik-adresli kopyalar (SHA256 ile adlandırılmış).
+#
+# NEDEN GEREKLİ: APT, Release'teki hash ile indirdiği dosyayı karşılaştırır.
+# Cloudflare/eski vekil önbelleği eski sürümü sunarsa hash tutmaz ve depo
+# HİÇ çalışmaz. Ölçüldü: "File has unexpected size (975 != 979)" — depo
+# 8 farklı denemede tamamen kullanılamaz durumdaydı.
+#
+# by-hash ile APT dosyayı /by-hash/SHA256/<hash> yolundan ister. Yol
+# içeriğe bağlı olduğu için eski önbellek girdisi ASLA yanlış içerik
+# döndüremez: ya doğru dosya gelir ya da 404 (APT düz yola düşer).
+inf "3b/6 by-hash kopyaları"
+# APT indeksleri by-hash altında SHA512 ile ister (Release'te en güçlü
+# hash hangisiyse onu kullanır). Yalnızca SHA256 koymak YETMEZ: APT
+# /by-hash/SHA512/<hash> ister, 404 alır ve düz yola düşer — düz yol da
+# önbellekteki eski dosyayı döndürünce "File has unexpected size" hatası
+# geri gelir. Üç algoritmayı da yazıyoruz.
+BYHASH_DIR="$REPO/dists/$SUITE/$COMP/binary-$ARCH/by-hash"
+for alg in SHA256 SHA512 SHA1 MD5Sum; do
+  mkdir -p "$BYHASH_DIR/$alg"
+done
+for f in Packages Packages.gz; do
+  src="$REPO/dists/$SUITE/$COMP/binary-$ARCH/$f"
+  [[ -f "$src" ]] || continue
+  h256=$(sha256sum "$src" | cut -d' ' -f1)
+  h512=$(sha512sum "$src" | cut -d' ' -f1)
+  h1=$(sha1sum   "$src" | cut -d' ' -f1)
+  hmd5=$(md5sum  "$src" | cut -d' ' -f1)
+  cp -f "$src" "$BYHASH_DIR/SHA256/$h256"
+  cp -f "$src" "$BYHASH_DIR/SHA512/$h512"
+  cp -f "$src" "$BYHASH_DIR/SHA1/$h1"
+  cp -f "$src" "$BYHASH_DIR/MD5Sum/$hmd5"
+  ok "  by-hash x4 ($f)"
+done
+
 # ---------------------------------------------------------------- 4) RELEASE
 inf "4/6 Release dosyası"
 ( cd "$REPO/dists/$SUITE" && apt-ftparchive \
@@ -93,8 +127,25 @@ inf "4/6 Release dosyası"
     -o APT::FTPArchive::Release::Architectures="$ARCH" \
     -o APT::FTPArchive::Release::Components="$COMP" \
     -o APT::FTPArchive::Release::Description="epixOS ${EPIX_VERSION} (${EPIX_RELEASE}) ${EPIX_CODENAME} paket deposu" \
-    release . > Release )
+    release . > Release.tmp )
+
+# Acquire-By-Hash: apt-ftparchive bu alanı YAZMIYOR. Elle ekliyoruz ve
+# MUTLAKA imzadan ÖNCE ekliyoruz — sonra eklersek imza geçersiz olur.
+#
+# Bu alan APT'ye "indeksleri /by-hash/SHA256/<hash> yolundan iste" der.
+# Yol içeriğe bağlı olduğu için eski önbellek girdisi asla yanlış içerik
+# döndüremez. Cloudflare önbelleği depoyu tamamen kullanılamaz hale
+# getiriyordu ("File has unexpected size (975 != 979)").
+{
+  printf 'Acquire-By-Hash: yes\n'
+  cat "$REPO/dists/$SUITE/Release.tmp"
+} > "$REPO/dists/$SUITE/Release"
+rm -f "$REPO/dists/$SUITE/Release.tmp"
+
 ok "  $(grep -cE '^(MD5Sum|SHA256):' "$REPO/dists/$SUITE/Release") bölüm"
+grep -q '^Acquire-By-Hash: yes' "$REPO/dists/$SUITE/Release" \
+  && ok "  Acquire-By-Hash: yes" \
+  || err "  Acquire-By-Hash yazılamadı"
 
 # ---------------------------------------------------------------- 5) IMZA
 inf "5/6 GPG imza"
@@ -109,8 +160,15 @@ ok "  InRelease + Release.gpg + epixos-archive-keyring.gpg"
 
 # ---------------------------------------------------------------- 6) DOGRULA
 inf "6/6 doğrulama"
-GNUPGHOME="$KEYDIR" gpg --verify "$REPO/dists/$SUITE/InRelease" 2>&1 \
-  | grep -E "Good signature|BAD" | sed 's/^/  /' || true
+# İmza doğrulaması: BAŞARISIZ olursa derleme durmalı. Sessizce geçen
+# bir imza hatası, depoyu tüm kullanıcılar için kullanılamaz yapar.
+if GNUPGHOME="$KEYDIR" gpg --verify "$REPO/dists/$SUITE/InRelease" 2>&1 \
+     | grep -qE "Good signature|iyi \[|İmza iyi"; then
+  ok "  InRelease imzası doğrulandı"
+else
+  err "  InRelease imza doğrulaması BAŞARISIZ"
+  exit 1
+fi
 
 cat > "$REPO/epixos.list" <<LIST
 # epixOS paket deposu — /etc/apt/sources.list.d/epixos.list olarak kurulur
