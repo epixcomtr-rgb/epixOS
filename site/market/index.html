@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Uygulama mağazası — epixOS</title>
+<meta name="description" content="epixOS uygulama kataloğu: 27 uygulama, açıklamaları ve kurulum komutları. Tek komutla kur, terminalde epix-market ile de gez.">
+<meta name="theme-color" content="#0e2a31">
+<link rel="canonical" href="https://os.epix.tr/market/">
+<link rel="icon" href="/assets/img/favicon.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..600,0..1,0&display=swap">
+<link rel="stylesheet" href="/assets/css/tx.css">
+<link rel="stylesheet" href="/assets/css/os.css">
+<link rel="stylesheet" href="/assets/css/market.css">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Uygulama mağazası — epixOS">
+<meta property="og:description" content="27 uygulama, açıklamaları ve kurulum komutları.">
+<meta property="og:url" content="https://os.epix.tr/market/">
+<meta property="og:image" content="https://os.epix.tr/assets/img/og.png">
+</head>
+<body>
+
+<a class="skip" href="#main">İçeriğe geç</a>
+
+<header class="site-header" id="siteHeader">
+  <div class="wrap nav">
+    <a class="brand" href="https://epix.tr/" aria-label="Epix ana sayfa">
+      <img src="/assets/img/logo.png" alt="Epix Software House" width="436" height="238"/>
+    </a>
+    <ul class="menu">
+      <li><a href="/">Genel bakış</a></li>
+      <li><a href="/indir/">İndir</a></li>
+      <li><a href="/market/" aria-current="page">Mağaza</a></li>
+      <li><a href="/surum-notlari/">Sürüm notları</a></li>
+      <li><a href="/#ozellikler">Özellikler</a></li>
+      <li><a href="https://epix.tr/iletisim">İletişim</a></li>
+    </ul>
+    <div class="nav-cta">
+      <a class="btn btn-primary btn-sm" href="/indir/">
+        <span class="ms" aria-hidden="true">download</span>İndir
+      </a>
+    </div>
+    <button class="burger" type="button" aria-label="Menü" aria-expanded="false" id="burger">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<main id="main">
+
+  <section class="os-hero mk-hero">
+    <div class="wrap">
+      <nav class="crumbs" aria-label="Konum">
+        <a href="/">epixOS</a><span aria-hidden="true">/</span><span>Mağaza</span>
+      </nav>
+      <h1>Uygulama mağazası</h1>
+      <p class="lead">
+        27 uygulama, ne işe yaradıkları ve kurulum komutları.
+        Beğendiğini seç, komutu kopyala, terminale yapıştır.
+        Terminali seviyorsan hepsi <code>epix-market</code> içinde de var.
+      </p>
+      <div class="mk-hero-actions">
+        <a class="btn btn-primary" href="#katalog">
+          <span class="ms" aria-hidden="true">grid_view</span>Kataloğa bak
+        </a>
+        <a class="btn btn-ghost" href="/indir/">
+          <span class="ms" aria-hidden="true">download</span>epixOS indir
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="os-section" id="katalog">
+    <div class="wrap">
+
+      <div class="mk-toolbar">
+        <div class="mk-search">
+          <span class="ms" aria-hidden="true">search</span>
+          <input type="search" id="mk-ara" placeholder="Uygulama ara: fotoğraf, video, pdf…"
+                 aria-label="Uygulama ara" autocomplete="off">
+        </div>
+        <p class="mk-sayac" id="mk-sayac" aria-live="polite">27 uygulama</p>
+      </div>
+
+      <div class="mk-chips" id="mk-chips" role="group" aria-label="Kategori süzgeci">
+        <button class="mk-chip is-on" data-kat="hepsi" type="button">Hepsi <span class="mk-n">27</span></button><button class="mk-chip" data-kat="epixos" type="button">epixOS <span class="mk-n">3</span></button><button class="mk-chip" data-kat="internet" type="button">İnternet <span class="mk-n">3</span></button><button class="mk-chip" data-kat="ofis" type="button">Ofis ve yazı <span class="mk-n">4</span></button><button class="mk-chip" data-kat="grafik" type="button">Grafik ve fotoğraf <span class="mk-n">4</span></button><button class="mk-chip" data-kat="medya" type="button">Ses ve video <span class="mk-n">5</span></button><button class="mk-chip" data-kat="gelistirme" type="button">Geliştirme <span class="mk-n">3</span></button><button class="mk-chip" data-kat="sistem" type="button">Sistem araçları <span class="mk-n">5</span></button>
+      </div>
+
+      
+      <div class="mk-notice">
+        <span class="ms" aria-hidden="true">info</span>
+        <div>
+          <p><b>epixOS paketleri için önce depo gerekir.</b> Bir kez kurulur:</p>
+          <div class="mk-cmd mk-cmd--wide">
+            <code>curl -fsSL https://os.epix.tr/indir/epix-depo-kur.sh | sudo sh</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="curl -fsSL https://os.epix.tr/indir/epix-depo-kur.sh | sudo sh"
+                    aria-label="Depo kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="mk-grid" id="mk-grid">
+        
+        <article class="mk-card" data-kat="epixos" data-arama="epixos marka teması epixos-tema lime/navy kurumsal renkler, gtk3/gtk4 katmanı, gnome vurguları ve üç duvar kağıdı (koyu / açık / sade). iso&#x27;yu yeniden kurmadan güncellenir. tema görünüm marka duvar kağıdı">
+          <div class="mk-card-top">
+            <h3>epixOS marka teması</h3>
+            <span class="mk-badge mk-badge--epix">epixOS</span>
+          </div>
+          <p class="mk-cat">epixOS</p>
+          <p class="mk-desc">Lime/navy kurumsal renkler, GTK3/GTK4 katmanı, GNOME vurguları ve üç duvar kağıdı (koyu / açık / sade). ISO&#x27;yu yeniden kurmadan güncellenir.</p>
+          <div class="mk-meta">
+            <code class="mk-pkg">epixos-tema</code>
+            <span class="mk-meta-item"><span class="ms" aria-hidden="true">download</span>~0.01 MB</span>
+          </div>
+          <div class="mk-tags"><span class="mk-tag">tema</span><span class="mk-tag">görünüm</span><span class="mk-tag">marka</span><span class="mk-tag">duvar kağıdı</span></div>
+          <div class="mk-cmd">
+            <code>sudo apt install epixos-tema</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="sudo apt install epixos-tema"
+                    aria-label="epixos-tema kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </article>
+        <article class="mk-card" data-kat="epixos" data-arama="epixos sistem araçları epixos-base epix, epix-ssh, epix-hw, epix-doctor, epix-update, epix-rescue ve vga=791 grub koruması. zaten iso ile gelir; onarım için yeniden kurulabilir. araç onarım sistem grub">
+          <div class="mk-card-top">
+            <h3>epixOS sistem araçları</h3>
+            <span class="mk-badge mk-badge--epix">epixOS</span>
+          </div>
+          <p class="mk-cat">epixOS</p>
+          <p class="mk-desc">epix, epix-ssh, epix-hw, epix-doctor, epix-update, epix-rescue ve vga=791 GRUB koruması. Zaten ISO ile gelir; onarım için yeniden kurulabilir.</p>
+          <div class="mk-meta">
+            <code class="mk-pkg">epixos-base</code>
+            <span class="mk-meta-item"><span class="ms" aria-hidden="true">download</span>~0.02 MB</span>
+          </div>
+          <div class="mk-tags"><span class="mk-tag">araç</span><span class="mk-tag">onarım</span><span class="mk-tag">sistem</span><span class="mk-tag">grub</span></div>
+          <div class="mk-cmd">
+            <code>sudo apt install epixos-base</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="sudo apt install epixos-base"
+                    aria-label="epixos-base kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </article>
+        <article class="mk-card" data-kat="grafik" data-arama="gimp gimp güçlü ve ücretsiz fotoğraf düzenleyici. katmanlar, fırçalar, filtreler, renk düzeltme. photoshop&#x27;a açık kaynak alternatif. fotoğraf resim düzenleme katman">
+          <div class="mk-card-top">
+            <h3>GIMP</h3>
+            
+          </div>
+          <p class="mk-cat">Grafik ve fotoğraf</p>
+          <p class="mk-desc">Güçlü ve ücretsiz fotoğraf düzenleyici. Katmanlar, fırçalar, filtreler, renk düzeltme. Photoshop&#x27;a açık kaynak alternatif.</p>
+          <div class="mk-meta">
+            <code class="mk-pkg">gimp</code>
+            <span class="mk-meta-item"><span class="ms" aria-hidden="true">download</span>~95 MB</span>
+          </div>
+          <div class="mk-tags"><span class="mk-tag">fotoğraf</span><span class="mk-tag">resim</span><span class="mk-tag">düzenleme</span><span class="mk-tag">katman</span></div>
+          <div class="mk-cmd">
+            <code>sudo apt install gimp</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="sudo apt install gimp"
+                    aria-label="gimp kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </article>
+        <article class="mk-card" data-kat="grafik" data-arama="inkscape inkscape vektörel çizim programı. logo, simge, illüstrasyon ve svg düzenleme için standart araç. vektör svg logo çizim">
+          <div class="mk-card-top">
+            <h3>Inkscape</h3>
+            
+          </div>
+          <p class="mk-cat">Grafik ve fotoğraf</p>
+          <p class="mk-desc">Vektörel çizim programı. Logo, simge, illüstrasyon ve SVG düzenleme için standart araç.</p>
+          <div class="mk-meta">
+            <code class="mk-pkg">inkscape</code>
+            <span class="mk-meta-item"><span class="ms" aria-hidden="true">download</span>~110 MB</span>
+          </div>
+          <div class="mk-tags"><span class="mk-tag">vektör</span><span class="mk-tag">svg</span><span class="mk-tag">logo</span><span class="mk-tag">çizim</span></div>
+          <div class="mk-cmd">
+            <code>sudo apt install inkscape</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="sudo apt install inkscape"
+                    aria-label="inkscape kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </article>
+        <article class="mk-card" data-kat="grafik" data-arama="blender blender 3b modelleme, animasyon, render ve video kurgu. profesyonel seviyede, tamamen ücretsiz. 3b modelleme animasyon render">
+          <div class="mk-card-top">
+            <h3>Blender</h3>
+            
+          </div>
+          <p class="mk-cat">Grafik ve fotoğraf</p>
+          <p class="mk-desc">3B modelleme, animasyon, render ve video kurgu. Profesyonel seviyede, tamamen ücretsiz.</p>
+          <div class="mk-meta">
+            <code class="mk-pkg">blender</code>
+            <span class="mk-meta-item"><span class="ms" aria-hidden="true">download</span>~320 MB</span>
+          </div>
+          <div class="mk-tags"><span class="mk-tag">3b</span><span class="mk-tag">modelleme</span><span class="mk-tag">animasyon</span><span class="mk-tag">render</span></div>
+          <div class="mk-cmd">
+            <code>sudo apt install blender</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="sudo apt install blender"
+                    aria-label="blender kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </article>
+        <article class="mk-card" data-kat="grafik" data-arama="shotwell shotwell gnome&#x27;un fotoğraf yöneticisi. kitaplık, albüm, hızlı düzeltme ve içe aktarma. hafif. fotoğraf galeri albüm">
+          <div class="mk-card-top">
+            <h3>Shotwell</h3>
+            
+          </div>
+          <p class="mk-cat">Grafik ve fotoğraf</p>
+          <p class="mk-desc">GNOME&#x27;un fotoğraf yöneticisi. Kitaplık, albüm, hızlı düzeltme ve içe aktarma. Hafif.</p>
+          <div class="mk-meta">
+            <code class="mk-pkg">shotwell</code>
+            <span class="mk-meta-item"><span class="ms" aria-hidden="true">download</span>~15 MB</span>
+          </div>
+          <div class="mk-tags"><span class="mk-tag">fotoğraf</span><span class="mk-tag">galeri</span><span class="mk-tag">albüm</span></div>
+          <div class="mk-cmd">
+            <code>sudo apt install shotwell</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="sudo apt install shotwell"
+                    aria-label="shotwell kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </article>
+        <article class="mk-card" data-kat="medya" data-arama="vlc medya oynatıcı vlc neredeyse her formatı açan oynatıcı. kod çözücü paketi gerekmez, altyazı ve ağ akışı destekler. video film müzik oynatıcı altyazı">
+          <div class="mk-card-top">
+            <h3>VLC medya oynatıcı</h3>
+            
+          </div>
+          <p class="mk-cat">Ses ve video</p>
+          <p class="mk-desc">Neredeyse her formatı açan oynatıcı. Kod çözücü paketi gerekmez, altyazı ve ağ akışı destekler.</p>
+          <div class="mk-meta">
+            <code class="mk-pkg">vlc</code>
+            <span class="mk-meta-item"><span class="ms" aria-hidden="true">download</span>~45 MB</span>
+          </div>
+          <div class="mk-tags"><span class="mk-tag">video</span><span class="mk-tag">film</span><span class="mk-tag">müzik</span><span class="mk-tag">oynatıcı</span><span class="mk-tag">altyazı</span></div>
+          <div class="mk-cmd">
+            <code>sudo apt install vlc</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="sudo apt install vlc"
+                    aria-label="vlc kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </article>
+        <article class="mk-card" data-kat="medya" data-arama="rhythmbox rhythmbox müzik kitaplığı ve çalar. podcast, internet radyosu ve taşınabilir aygıt desteği. müzik podcast radyo">
+          <div class="mk-card-top">
+            <h3>Rhythmbox</h3>
+            
+          </div>
+          <p class="mk-cat">Ses ve video</p>
+          <p class="mk-desc">Müzik kitaplığı ve çalar. Podcast, internet radyosu ve taşınabilir aygıt desteği.</p>
+          <div class="mk-meta">
+            <code class="mk-pkg">rhythmbox</code>
+            <span class="mk-meta-item"><span class="ms" aria-hidden="true">download</span>~12 MB</span>
+          </div>
+          <div class="mk-tags"><span class="mk-tag">müzik</span><span class="mk-tag">podcast</span><span class="mk-tag">radyo</span></div>
+          <div class="mk-cmd">
+            <code>sudo apt install rhythmbox</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="sudo apt install rhythmbox"
+                    aria-label="rhythmbox kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </article>
+        <article class="mk-card" data-kat="medya" data-arama="audacity audacity ses kaydı ve düzenleme. çok kanal kayıt, gürültü temizleme, efektler, format dönüştürme. ses kayıt podcast düzenleme">
+          <div class="mk-card-top">
+            <h3>Audacity</h3>
+            
+          </div>
+          <p class="mk-cat">Ses ve video</p>
+          <p class="mk-desc">Ses kaydı ve düzenleme. Çok kanal kayıt, gürültü temizleme, efektler, format dönüştürme.</p>
+          <div class="mk-meta">
+            <code class="mk-pkg">audacity</code>
+            <span class="mk-meta-item"><span class="ms" aria-hidden="true">download</span>~35 MB</span>
+          </div>
+          <div class="mk-tags"><span class="mk-tag">ses</span><span class="mk-tag">kayıt</span><span class="mk-tag">podcast</span><span class="mk-tag">düzenleme</span></div>
+          <div class="mk-cmd">
+            <code>sudo apt install audacity</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="sudo apt install audacity"
+                    aria-label="audacity kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </article>
+        <article class="mk-card" data-kat="medya" data-arama="obs studio obs-studio ekran kaydı ve canlı yayın. sahne, kaynak ve geçiş yönetimi. yayıncıların standardı. yayın kayıt ekran stream">
+          <div class="mk-card-top">
+            <h3>OBS Studio</h3>
+            
+          </div>
+          <p class="mk-cat">Ses ve video</p>
+          <p class="mk-desc">Ekran kaydı ve canlı yayın. Sahne, kaynak ve geçiş yönetimi. Yayıncıların standardı.</p>
+          <div class="mk-meta">
+            <code class="mk-pkg">obs-studio</code>
+            <span class="mk-meta-item"><span class="ms" aria-hidden="true">download</span>~150 MB</span>
+          </div>
+          <div class="mk-tags"><span class="mk-tag">yayın</span><span class="mk-tag">kayıt</span><span class="mk-tag">ekran</span><span class="mk-tag">stream</span></div>
+          <div class="mk-cmd">
+            <code>sudo apt install obs-studio</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="sudo apt install obs-studio"
+                    aria-label="obs-studio kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </article>
+        <article class="mk-card" data-kat="medya" data-arama="kdenlive kdenlive video kurgu programı. çok kanallı zaman çizelgesi, geçişler, efektler, renk düzeltme. video kurgu montaj film">
+          <div class="mk-card-top">
+            <h3>Kdenlive</h3>
+            
+          </div>
+          <p class="mk-cat">Ses ve video</p>
+          <p class="mk-desc">Video kurgu programı. Çok kanallı zaman çizelgesi, geçişler, efektler, renk düzeltme.</p>
+          <div class="mk-meta">
+            <code class="mk-pkg">kdenlive</code>
+            <span class="mk-meta-item"><span class="ms" aria-hidden="true">download</span>~180 MB</span>
+          </div>
+          <div class="mk-tags"><span class="mk-tag">video</span><span class="mk-tag">kurgu</span><span class="mk-tag">montaj</span><span class="mk-tag">film</span></div>
+          <div class="mk-cmd">
+            <code>sudo apt install kdenlive</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="sudo apt install kdenlive"
+                    aria-label="kdenlive kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </article>
+        <article class="mk-card" data-kat="ofis" data-arama="libreoffice libreoffice ofis paketi: writer (belge), calc (tablo), impress (sunum), draw, math. microsoft office dosyalarıyla uyumlu. belge tablo sunum word excel ofis">
+          <div class="mk-card-top">
+            <h3>LibreOffice</h3>
+            
+          </div>
+          <p class="mk-cat">Ofis ve yazı</p>
+          <p class="mk-desc">Ofis paketi: Writer (belge), Calc (tablo), Impress (sunum), Draw, Math. Microsoft Office dosyalarıyla uyumlu.</p>
+          <div class="mk-meta">
+            <code class="mk-pkg">libreoffice</code>
+            <span class="mk-meta-item"><span class="ms" aria-hidden="true">download</span>~280 MB</span>
+          </div>
+          <div class="mk-tags"><span class="mk-tag">belge</span><span class="mk-tag">tablo</span><span class="mk-tag">sunum</span><span class="mk-tag">word</span><span class="mk-tag">excel</span><span class="mk-tag">ofis</span></div>
+          <div class="mk-cmd">
+            <code>sudo apt install libreoffice</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="sudo apt install libreoffice"
+                    aria-label="libreoffice kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </article>
+        <article class="mk-card" data-kat="ofis" data-arama="calibre calibre e-kitap yöneticisi ve dönüştürücü. epub, pdf, mobi arasında çevirir; e-okuyucuya aktarır. kitap epub pdf e-kitap">
+          <div class="mk-card-top">
+            <h3>Calibre</h3>
+            
+          </div>
+          <p class="mk-cat">Ofis ve yazı</p>
+          <p class="mk-desc">E-kitap yöneticisi ve dönüştürücü. EPUB, PDF, MOBI arasında çevirir; e-okuyucuya aktarır.</p>
+          <div class="mk-meta">
+            <code class="mk-pkg">calibre</code>
+            <span class="mk-meta-item"><span class="ms" aria-hidden="true">download</span>~190 MB</span>
+          </div>
+          <div class="mk-tags"><span class="mk-tag">kitap</span><span class="mk-tag">epub</span><span class="mk-tag">pdf</span><span class="mk-tag">e-kitap</span></div>
+          <div class="mk-cmd">
+            <code>sudo apt install calibre</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="sudo apt install calibre"
+                    aria-label="calibre kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </article>
+        <article class="mk-card" data-kat="ofis" data-arama="okular okular pdf ve belge görüntüleyici. not alma, imleme, form doldurma desteği. pdf belge görüntüleyici not">
+          <div class="mk-card-top">
+            <h3>Okular</h3>
+            
+          </div>
+          <p class="mk-cat">Ofis ve yazı</p>
+          <p class="mk-desc">PDF ve belge görüntüleyici. Not alma, imleme, form doldurma desteği.</p>
+          <div class="mk-meta">
+            <code class="mk-pkg">okular</code>
+            <span class="mk-meta-item"><span class="ms" aria-hidden="true">download</span>~40 MB</span>
+          </div>
+          <div class="mk-tags"><span class="mk-tag">pdf</span><span class="mk-tag">belge</span><span class="mk-tag">görüntüleyici</span><span class="mk-tag">not</span></div>
+          <div class="mk-cmd">
+            <code>sudo apt install okular</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="sudo apt install okular"
+                    aria-label="okular kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </article>
+        <article class="mk-card" data-kat="internet" data-arama="thunderbird thunderbird e-posta, takvim ve kişiler. birden fazla hesap, akıllı klasörler, şifreleme (openpgp). e-posta mail takvim kişiler">
+          <div class="mk-card-top">
+            <h3>Thunderbird</h3>
+            
+          </div>
+          <p class="mk-cat">İnternet</p>
+          <p class="mk-desc">E-posta, takvim ve kişiler. Birden fazla hesap, akıllı klasörler, şifreleme (OpenPGP).</p>
+          <div class="mk-meta">
+            <code class="mk-pkg">thunderbird</code>
+            <span class="mk-meta-item"><span class="ms" aria-hidden="true">download</span>~70 MB</span>
+          </div>
+          <div class="mk-tags"><span class="mk-tag">e-posta</span><span class="mk-tag">mail</span><span class="mk-tag">takvim</span><span class="mk-tag">kişiler</span></div>
+          <div class="mk-cmd">
+            <code>sudo apt install thunderbird</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="sudo apt install thunderbird"
+                    aria-label="thunderbird kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </article>
+        <article class="mk-card" data-kat="internet" data-arama="remmina remmina uzak masaüstü istemcisi. rdp, vnc, ssh ve spice protokollerini tek arayüzde toplar. rdp vnc uzak masaüstü ssh">
+          <div class="mk-card-top">
+            <h3>Remmina</h3>
+            
+          </div>
+          <p class="mk-cat">İnternet</p>
+          <p class="mk-desc">Uzak masaüstü istemcisi. RDP, VNC, SSH ve SPICE protokollerini tek arayüzde toplar.</p>
+          <div class="mk-meta">
+            <code class="mk-pkg">remmina</code>
+            <span class="mk-meta-item"><span class="ms" aria-hidden="true">download</span>~25 MB</span>
+          </div>
+          <div class="mk-tags"><span class="mk-tag">rdp</span><span class="mk-tag">vnc</span><span class="mk-tag">uzak</span><span class="mk-tag">masaüstü</span><span class="mk-tag">ssh</span></div>
+          <div class="mk-cmd">
+            <code>sudo apt install remmina</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="sudo apt install remmina"
+                    aria-label="remmina kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </article>
+        <article class="mk-card" data-kat="gelistirme" data-arama="git git sürüm kontrol sistemi. kod geçmişi, dallanma, işbirliği. neredeyse tüm açık kaynak projelerin temeli. sürüm kod github depo">
+          <div class="mk-card-top">
+            <h3>Git</h3>
+            
+          </div>
+          <p class="mk-cat">Geliştirme</p>
+          <p class="mk-desc">Sürüm kontrol sistemi. Kod geçmişi, dallanma, işbirliği. Neredeyse tüm açık kaynak projelerin temeli.</p>
+          <div class="mk-meta">
+            <code class="mk-pkg">git</code>
+            <span class="mk-meta-item"><span class="ms" aria-hidden="true">download</span>~12 MB</span>
+          </div>
+          <div class="mk-tags"><span class="mk-tag">sürüm</span><span class="mk-tag">kod</span><span class="mk-tag">github</span><span class="mk-tag">depo</span></div>
+          <div class="mk-cmd">
+            <code>sudo apt install git</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="sudo apt install git"
+                    aria-label="git kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </article>
+        <article class="mk-card" data-kat="gelistirme" data-arama="python paket yöneticisi python3-pip python 3 için pip. pypi&#x27;dan kütüphane kurmak ve sanal ortam yönetmek için gerekli. python pip kütüphane geliştirme">
+          <div class="mk-card-top">
+            <h3>Python paket yöneticisi</h3>
+            
+          </div>
+          <p class="mk-cat">Geliştirme</p>
+          <p class="mk-desc">Python 3 için pip. PyPI&#x27;dan kütüphane kurmak ve sanal ortam yönetmek için gerekli.</p>
+          <div class="mk-meta">
+            <code class="mk-pkg">python3-pip</code>
+            <span class="mk-meta-item"><span class="ms" aria-hidden="true">download</span>~8 MB</span>
+          </div>
+          <div class="mk-tags"><span class="mk-tag">python</span><span class="mk-tag">pip</span><span class="mk-tag">kütüphane</span><span class="mk-tag">geliştirme</span></div>
+          <div class="mk-cmd">
+            <code>sudo apt install python3-pip</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="sudo apt install python3-pip"
+                    aria-label="python3-pip kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </article>
+        <article class="mk-card" data-kat="gelistirme" data-arama="docker docker.io konteyner çalıştırma ortamı. uygulamaları izole paketler hâlinde çalıştırır. kurulumdan sonra oturumu kapatıp açman gerekebilir. konteyner docker izole sunucu">
+          <div class="mk-card-top">
+            <h3>Docker</h3>
+            
+          </div>
+          <p class="mk-cat">Geliştirme</p>
+          <p class="mk-desc">Konteyner çalıştırma ortamı. Uygulamaları izole paketler hâlinde çalıştırır. Kurulumdan sonra oturumu kapatıp açman gerekebilir.</p>
+          <div class="mk-meta">
+            <code class="mk-pkg">docker.io</code>
+            <span class="mk-meta-item"><span class="ms" aria-hidden="true">download</span>~95 MB</span>
+          </div>
+          <div class="mk-tags"><span class="mk-tag">konteyner</span><span class="mk-tag">docker</span><span class="mk-tag">izole</span><span class="mk-tag">sunucu</span></div>
+          <div class="mk-cmd">
+            <code>sudo apt install docker.io</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="sudo apt install docker.io"
+                    aria-label="docker.io kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </article>
+        <article class="mk-card" data-kat="sistem" data-arama="gparted gparted disk bölümleme editörü. bölüm oluşturma, boyutlandırma, taşıma, biçimlendirme. di̇kkat: yanlış işlem veri kaybına yol açar. disk bölüm biçimlendirme partition">
+          <div class="mk-card-top">
+            <h3>GParted</h3>
+            
+          </div>
+          <p class="mk-cat">Sistem araçları</p>
+          <p class="mk-desc">Disk bölümleme editörü. Bölüm oluşturma, boyutlandırma, taşıma, biçimlendirme. DİKKAT: yanlış işlem veri kaybına yol açar.</p>
+          <div class="mk-meta">
+            <code class="mk-pkg">gparted</code>
+            <span class="mk-meta-item"><span class="ms" aria-hidden="true">download</span>~20 MB</span>
+          </div>
+          <div class="mk-tags"><span class="mk-tag">disk</span><span class="mk-tag">bölüm</span><span class="mk-tag">biçimlendirme</span><span class="mk-tag">partition</span></div>
+          <div class="mk-cmd">
+            <code>sudo apt install gparted</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="sudo apt install gparted"
+                    aria-label="gparted kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </article>
+        <article class="mk-card" data-kat="sistem" data-arama="timeshift timeshift sistem anlık görüntüsü ve geri alma. güncelleme sonrası sorun çıkarsa önceki duruma döndürür. yedek anlık görüntü geri alma snapshot">
+          <div class="mk-card-top">
+            <h3>Timeshift</h3>
+            
+          </div>
+          <p class="mk-cat">Sistem araçları</p>
+          <p class="mk-desc">Sistem anlık görüntüsü ve geri alma. Güncelleme sonrası sorun çıkarsa önceki duruma döndürür.</p>
+          <div class="mk-meta">
+            <code class="mk-pkg">timeshift</code>
+            <span class="mk-meta-item"><span class="ms" aria-hidden="true">download</span>~40 MB</span>
+          </div>
+          <div class="mk-tags"><span class="mk-tag">yedek</span><span class="mk-tag">anlık görüntü</span><span class="mk-tag">geri alma</span><span class="mk-tag">snapshot</span></div>
+          <div class="mk-cmd">
+            <code>sudo apt install timeshift</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="sudo apt install timeshift"
+                    aria-label="timeshift kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </article>
+        <article class="mk-card" data-kat="sistem" data-arama="sanal makine yöneticisi virt-manager kvm/qemu sanal makineleri için grafik arayüz. başka bir işletim sistemini pencere içinde çalıştırır. sanal makine kvm vm emülasyon">
+          <div class="mk-card-top">
+            <h3>Sanal Makine Yöneticisi</h3>
+            
+          </div>
+          <p class="mk-cat">Sistem araçları</p>
+          <p class="mk-desc">KVM/QEMU sanal makineleri için grafik arayüz. Başka bir işletim sistemini pencere içinde çalıştırır.</p>
+          <div class="mk-meta">
+            <code class="mk-pkg">virt-manager</code>
+            <span class="mk-meta-item"><span class="ms" aria-hidden="true">download</span>~45 MB</span>
+          </div>
+          <div class="mk-tags"><span class="mk-tag">sanal makine</span><span class="mk-tag">kvm</span><span class="mk-tag">vm</span><span class="mk-tag">emülasyon</span></div>
+          <div class="mk-cmd">
+            <code>sudo apt install virt-manager</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="sudo apt install virt-manager"
+                    aria-label="virt-manager kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </article>
+        <article class="mk-card" data-kat="sistem" data-arama="htop htop etkileşimli süreç izleyici. hangi uygulama ne kadar bellek/cpu kullanıyor, renkli ve okunur biçimde. süreç bellek cpu izleme terminal">
+          <div class="mk-card-top">
+            <h3>htop</h3>
+            
+          </div>
+          <p class="mk-cat">Sistem araçları</p>
+          <p class="mk-desc">Etkileşimli süreç izleyici. Hangi uygulama ne kadar bellek/CPU kullanıyor, renkli ve okunur biçimde.</p>
+          <div class="mk-meta">
+            <code class="mk-pkg">htop</code>
+            <span class="mk-meta-item"><span class="ms" aria-hidden="true">download</span>~1.5 MB</span>
+          </div>
+          <div class="mk-tags"><span class="mk-tag">süreç</span><span class="mk-tag">bellek</span><span class="mk-tag">cpu</span><span class="mk-tag">izleme</span><span class="mk-tag">terminal</span></div>
+          <div class="mk-cmd">
+            <code>sudo apt install htop</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="sudo apt install htop"
+                    aria-label="htop kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </article>
+        <article class="mk-card" data-kat="internet" data-arama="transmission transmission-gtk bittorrent istemcisi. hafif, sade arayüz. büyük dosya indirmede (ör. iso) kullanışlı. torrent indirme bittorrent p2p">
+          <div class="mk-card-top">
+            <h3>Transmission</h3>
+            
+          </div>
+          <p class="mk-cat">İnternet</p>
+          <p class="mk-desc">BitTorrent istemcisi. Hafif, sade arayüz. Büyük dosya indirmede (ör. ISO) kullanışlı.</p>
+          <div class="mk-meta">
+            <code class="mk-pkg">transmission-gtk</code>
+            <span class="mk-meta-item"><span class="ms" aria-hidden="true">download</span>~10 MB</span>
+          </div>
+          <div class="mk-tags"><span class="mk-tag">torrent</span><span class="mk-tag">indirme</span><span class="mk-tag">bittorrent</span><span class="mk-tag">p2p</span></div>
+          <div class="mk-cmd">
+            <code>sudo apt install transmission-gtk</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="sudo apt install transmission-gtk"
+                    aria-label="transmission-gtk kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </article>
+        <article class="mk-card" data-kat="ofis" data-arama="belge tarayıcı simple-scan tarayıcıdan belge ve fotoğraf almak için basit arayüz. pdf veya resim olarak kaydeder. tarayıcı scanner pdf belge">
+          <div class="mk-card-top">
+            <h3>Belge Tarayıcı</h3>
+            
+          </div>
+          <p class="mk-cat">Ofis ve yazı</p>
+          <p class="mk-desc">Tarayıcıdan belge ve fotoğraf almak için basit arayüz. PDF veya resim olarak kaydeder.</p>
+          <div class="mk-meta">
+            <code class="mk-pkg">simple-scan</code>
+            <span class="mk-meta-item"><span class="ms" aria-hidden="true">download</span>~8 MB</span>
+          </div>
+          <div class="mk-tags"><span class="mk-tag">tarayıcı</span><span class="mk-tag">scanner</span><span class="mk-tag">pdf</span><span class="mk-tag">belge</span></div>
+          <div class="mk-cmd">
+            <code>sudo apt install simple-scan</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="sudo apt install simple-scan"
+                    aria-label="simple-scan kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </article>
+        <article class="mk-card" data-kat="sistem" data-arama="keepassxc keepassxc parola kasası. tüm parolalar tek şifreli dosyada; tarayıcı eklentisi ve otomatik doldurma. parola şifre güvenlik kasa">
+          <div class="mk-card-top">
+            <h3>KeePassXC</h3>
+            
+          </div>
+          <p class="mk-cat">Sistem araçları</p>
+          <p class="mk-desc">Parola kasası. Tüm parolalar tek şifreli dosyada; tarayıcı eklentisi ve otomatik doldurma.</p>
+          <div class="mk-meta">
+            <code class="mk-pkg">keepassxc</code>
+            <span class="mk-meta-item"><span class="ms" aria-hidden="true">download</span>~30 MB</span>
+          </div>
+          <div class="mk-tags"><span class="mk-tag">parola</span><span class="mk-tag">şifre</span><span class="mk-tag">güvenlik</span><span class="mk-tag">kasa</span></div>
+          <div class="mk-cmd">
+            <code>sudo apt install keepassxc</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="sudo apt install keepassxc"
+                    aria-label="keepassxc kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </article>
+        <article class="mk-card" data-kat="epixos" data-arama="gnome yazılım (grafik mağaza) gnome-software grafik uygulama mağazası. di̇kkat: yaklaşık 120 mb bellek kullanır — 2 gb&#x27;lık makinelerde önerilmez. terminalde `epix-market` daha hafif. mağaza grafik yazılım gui">
+          <div class="mk-card-top">
+            <h3>GNOME Yazılım (grafik mağaza)</h3>
+            
+          </div>
+          <p class="mk-cat">epixOS</p>
+          <p class="mk-desc">Grafik uygulama mağazası. DİKKAT: yaklaşık 120 MB bellek kullanır — 2 GB&#x27;lık makinelerde önerilmez. Terminalde `epix-market` daha hafif.</p>
+          <div class="mk-meta">
+            <code class="mk-pkg">gnome-software</code>
+            <span class="mk-meta-item"><span class="ms" aria-hidden="true">download</span>~35 MB</span>
+          </div>
+          <div class="mk-tags"><span class="mk-tag">mağaza</span><span class="mk-tag">grafik</span><span class="mk-tag">yazılım</span><span class="mk-tag">gui</span></div>
+          <div class="mk-cmd">
+            <code>sudo apt install gnome-software</code>
+            <button class="mk-copy" type="button"
+                    data-kopya="sudo apt install gnome-software"
+                    aria-label="gnome-software kurulum komutunu kopyala">
+              <span class="ms" aria-hidden="true">content_copy</span>
+            </button>
+          </div>
+        </article>
+      </div>
+
+      <p class="mk-bos" id="mk-bos" hidden>
+        Aramanla eşleşen uygulama yok. Farklı bir kelime dene ya da
+        <button class="mk-link" type="button" id="mk-sifirla">süzgeçleri temizle</button>.
+      </p>
+
+    </div>
+  </section>
+
+  <section class="os-section os-alt" id="terminal">
+    <div class="wrap">
+      <div class="os-head">
+        <h2>Terminali mi seviyorsun?</h2>
+        <p class="lead">Aynı katalog <code>epix-market</code> komutunda da var — ağ gerekmez.</p>
+      </div>
+      <div class="mk-term">
+        <div class="mk-term-bar">
+          <span class="mk-dot"></span><span class="mk-dot"></span><span class="mk-dot"></span>
+          <span class="mk-term-title">epix-market</span>
+        </div>
+        <pre class="mk-term-body"><code><span class="mk-p">$</span> epix-market
+  epixos            3 uygulama
+  internet          3 uygulama
+  ofis              4 uygulama
+  grafik            4 uygulama
+  medya             5 uygulama
+  gelistirme        3 uygulama
+  sistem            5 uygulama
+
+<span class="mk-p">$</span> epix-market bilgi gimp
+<span class="mk-c">GIMP</span>
+Grafik ve fotoğraf
+
+Güçlü ve ücretsiz fotoğraf düzenleyici. Katmanlar, fırçalar…
+
+  paket      : gimp
+  boyut      : yaklaşık 95 MB indirme
+  kaynak     : Ubuntu deposu
+  durum      : kurulu değil
+
+  <span class="mk-k">Kurulum:</span>
+    sudo apt install gimp
+
+<span class="mk-p">$</span> epix-market kur gimp vlc</code></pre>
+      </div>
+      <p class="mk-term-not">
+        <code>epix-market</code> komutu <code>epixos-base</code> paketiyle gelir.
+        Gelmiyorsa: <code>sudo apt install --reinstall epixos-base</code>
+      </p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="f-grid">
+      <div class="f-brand">
+        <img src="/assets/img/logo.png" alt="Epix Software House" width="436" height="238"/>
+        <p>Hafif, hızlı ve AI ile yönetilen Linux dağıtımı.</p>
+      </div>
+      <div class="f-col">
+        <h4>epixOS</h4>
+        <a href="/">Genel bakış</a>
+        <a href="/indir/">İndir</a>
+        <a href="/market/">Mağaza</a>
+        <a href="/surum-notlari/">Sürüm notları</a>
+        <a href="/#ozellikler">Özellikler</a>
+        <a href="/#sss">SSS</a>
+      </div>
+      <div class="f-col">
+        <h4>Epix</h4>
+        <a href="https://epix.tr/">Ana sayfa</a>
+        <a href="https://epix.tr/iletisim">İletişim</a>
+        <a href="https://hub.epix.tr/giris">Epix Hub</a>
+      </div>
+      <div class="f-col">
+        <h4>Sürüm</h4>
+        <a href="/surum-notlari/#teknik">epixOS 0.1</a>
+        <a href="/surum-notlari/">2026.11 — kavak</a>
+        <a href="/surum-notlari/">amd64</a>
+      </div>
+    </div>
+    <div class="f-bottom">
+      <span>&copy; <span id="yil">2026</span> Epix Software House. epixOS açık kaynak bir projedir.</span>
+      <span>GPL-3.0 · <a href="https://github.com/epixcomtr-rgb/epixOS" rel="noopener">GitHub</a></span>
+    </div>
+  </div>
+</footer>
+
+<script src="/assets/js/market.js" defer></script>
+<script>
+/* Burger menü — indir/ sayfasındaki ile aynı davranış */
+(function () {
+  var y = document.getElementById('yil');
+  if (y) y.textContent = new Date().getFullYear();
+
+  var burger = document.getElementById('burger');
+  var menu = document.querySelector('.menu');
+  if (burger && menu) {
+    burger.addEventListener('click', function () {
+      var open = menu.classList.toggle('open');
+      burger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    menu.querySelectorAll('a').forEach(function (a) {
+      a.addEventListener('click', function () {
+        menu.classList.remove('open');
+        burger.setAttribute('aria-expanded', 'false');
+      });
+    });
+  }
+})();
+</script>
+</body>
+</html>

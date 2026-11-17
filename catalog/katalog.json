@@ -1,0 +1,337 @@
+{
+  "_readme": [
+    "epixOS uygulama kataloğu — TEK KAYNAK.",
+    "",
+    "Bu dosya hem `epix-market` komutunu hem os.epix.tr/market sayfasını",
+    "üretir. Bir uygulamayı buraya ekleyince iki yerde birden görünür.",
+    "",
+    "KURALLAR:",
+    "  - `paket` alanı noble (Ubuntu 24.04) depolarında GERÇEKTEN var olmalı.",
+    "    Olmayan paket yazmak, kullanıcıya çalışmayan komut vermek demektir.",
+    "  - `ad` kısa ve arama için kullanılır; `paket` kurulacak addır.",
+    "  - `boyut_mb` ölçülmüş tahmini indirme boyutudur (apt-cache --installed",
+    "    değil, paket boyutu). Bilinmiyorsa 0 bırakılır ve gösterilmez.",
+    "  - `epix` true ise epixOS'un kendi paketidir, epixos deposundan gelir.",
+    "    false ise Ubuntu deposundan gelir.",
+    "  - Dosyayı elle düzenlerken JSON sözdizimini koru; üretici betik",
+    "    bozuk JSON'da GÜRÜLTÜLÜ hata verir."
+  ],
+  "surum": "0.1",
+  "guncelleme": "2026-11-17",
+  "kategoriler": [
+    {
+      "id": "epixos",
+      "ad": "epixOS",
+      "aciklama": "Sistemin kendi paketleri — tema, modüller, araçlar",
+      "ikon": "settings"
+    },
+    {
+      "id": "internet",
+      "ad": "İnternet",
+      "aciklama": "Tarayıcı, e-posta, sohbet",
+      "ikon": "public"
+    },
+    {
+      "id": "ofis",
+      "ad": "Ofis ve yazı",
+      "aciklama": "Belge, tablo, sunum, not",
+      "ikon": "description"
+    },
+    {
+      "id": "grafik",
+      "ad": "Grafik ve fotoğraf",
+      "aciklama": "Fotoğraf düzenleme, çizim, 3B",
+      "ikon": "image"
+    },
+    {
+      "id": "medya",
+      "ad": "Ses ve video",
+      "aciklama": "Oynatıcı, düzenleyici, kayıt",
+      "ikon": "play_circle"
+    },
+    {
+      "id": "gelistirme",
+      "ad": "Geliştirme",
+      "aciklama": "Editör, sürüm kontrolü, konteyner",
+      "ikon": "code"
+    },
+    {
+      "id": "sistem",
+      "ad": "Sistem araçları",
+      "aciklama": "Disk, yedek, sanallaştırma, izleme",
+      "ikon": "build"
+    }
+  ],
+  "uygulamalar": [
+    {
+      "ad": "epixos-tema",
+      "paket": "epixos-tema",
+      "kategori": "epixos",
+      "epix": true,
+      "baslik": "epixOS marka teması",
+      "aciklama": "Lime/navy kurumsal renkler, GTK3/GTK4 katmanı, GNOME vurguları ve üç duvar kağıdı (koyu / açık / sade). ISO'yu yeniden kurmadan güncellenir.",
+      "boyut_mb": 0.01,
+      "etiketler": ["tema", "görünüm", "marka", "duvar kağıdı"]
+    },
+    {
+      "ad": "epixos-base",
+      "paket": "epixos-base",
+      "kategori": "epixos",
+      "epix": true,
+      "baslik": "epixOS sistem araçları",
+      "aciklama": "epix, epix-ssh, epix-hw, epix-doctor, epix-update, epix-rescue ve vga=791 GRUB koruması. Zaten ISO ile gelir; onarım için yeniden kurulabilir.",
+      "boyut_mb": 0.02,
+      "etiketler": ["araç", "onarım", "sistem", "grub"]
+    },
+    {
+      "ad": "gimp",
+      "paket": "gimp",
+      "kategori": "grafik",
+      "epix": false,
+      "baslik": "GIMP",
+      "aciklama": "Güçlü ve ücretsiz fotoğraf düzenleyici. Katmanlar, fırçalar, filtreler, renk düzeltme. Photoshop'a açık kaynak alternatif.",
+      "boyut_mb": 95,
+      "etiketler": ["fotoğraf", "resim", "düzenleme", "katman"]
+    },
+    {
+      "ad": "inkscape",
+      "paket": "inkscape",
+      "kategori": "grafik",
+      "epix": false,
+      "baslik": "Inkscape",
+      "aciklama": "Vektörel çizim programı. Logo, simge, illüstrasyon ve SVG düzenleme için standart araç.",
+      "boyut_mb": 110,
+      "etiketler": ["vektör", "svg", "logo", "çizim"]
+    },
+    {
+      "ad": "blender",
+      "paket": "blender",
+      "kategori": "grafik",
+      "epix": false,
+      "baslik": "Blender",
+      "aciklama": "3B modelleme, animasyon, render ve video kurgu. Profesyonel seviyede, tamamen ücretsiz.",
+      "boyut_mb": 320,
+      "etiketler": ["3b", "modelleme", "animasyon", "render"]
+    },
+    {
+      "ad": "shotwell",
+      "paket": "shotwell",
+      "kategori": "grafik",
+      "epix": false,
+      "baslik": "Shotwell",
+      "aciklama": "GNOME'un fotoğraf yöneticisi. Kitaplık, albüm, hızlı düzeltme ve içe aktarma. Hafif.",
+      "boyut_mb": 15,
+      "etiketler": ["fotoğraf", "galeri", "albüm"]
+    },
+    {
+      "ad": "vlc",
+      "paket": "vlc",
+      "kategori": "medya",
+      "epix": false,
+      "baslik": "VLC medya oynatıcı",
+      "aciklama": "Neredeyse her formatı açan oynatıcı. Kod çözücü paketi gerekmez, altyazı ve ağ akışı destekler.",
+      "boyut_mb": 45,
+      "etiketler": ["video", "film", "müzik", "oynatıcı", "altyazı"]
+    },
+    {
+      "ad": "rhythmbox",
+      "paket": "rhythmbox",
+      "kategori": "medya",
+      "epix": false,
+      "baslik": "Rhythmbox",
+      "aciklama": "Müzik kitaplığı ve çalar. Podcast, internet radyosu ve taşınabilir aygıt desteği.",
+      "boyut_mb": 12,
+      "etiketler": ["müzik", "podcast", "radyo"]
+    },
+    {
+      "ad": "audacity",
+      "paket": "audacity",
+      "kategori": "medya",
+      "epix": false,
+      "baslik": "Audacity",
+      "aciklama": "Ses kaydı ve düzenleme. Çok kanal kayıt, gürültü temizleme, efektler, format dönüştürme.",
+      "boyut_mb": 35,
+      "etiketler": ["ses", "kayıt", "podcast", "düzenleme"]
+    },
+    {
+      "ad": "obs-studio",
+      "paket": "obs-studio",
+      "kategori": "medya",
+      "epix": false,
+      "baslik": "OBS Studio",
+      "aciklama": "Ekran kaydı ve canlı yayın. Sahne, kaynak ve geçiş yönetimi. Yayıncıların standardı.",
+      "boyut_mb": 150,
+      "etiketler": ["yayın", "kayıt", "ekran", "stream"]
+    },
+    {
+      "ad": "kdenlive",
+      "paket": "kdenlive",
+      "kategori": "medya",
+      "epix": false,
+      "baslik": "Kdenlive",
+      "aciklama": "Video kurgu programı. Çok kanallı zaman çizelgesi, geçişler, efektler, renk düzeltme.",
+      "boyut_mb": 180,
+      "etiketler": ["video", "kurgu", "montaj", "film"]
+    },
+    {
+      "ad": "libreoffice",
+      "paket": "libreoffice",
+      "kategori": "ofis",
+      "epix": false,
+      "baslik": "LibreOffice",
+      "aciklama": "Ofis paketi: Writer (belge), Calc (tablo), Impress (sunum), Draw, Math. Microsoft Office dosyalarıyla uyumlu.",
+      "boyut_mb": 280,
+      "etiketler": ["belge", "tablo", "sunum", "word", "excel", "ofis"]
+    },
+    {
+      "ad": "calibre",
+      "paket": "calibre",
+      "kategori": "ofis",
+      "epix": false,
+      "baslik": "Calibre",
+      "aciklama": "E-kitap yöneticisi ve dönüştürücü. EPUB, PDF, MOBI arasında çevirir; e-okuyucuya aktarır.",
+      "boyut_mb": 190,
+      "etiketler": ["kitap", "epub", "pdf", "e-kitap"]
+    },
+    {
+      "ad": "okular",
+      "paket": "okular",
+      "kategori": "ofis",
+      "epix": false,
+      "baslik": "Okular",
+      "aciklama": "PDF ve belge görüntüleyici. Not alma, imleme, form doldurma desteği.",
+      "boyut_mb": 40,
+      "etiketler": ["pdf", "belge", "görüntüleyici", "not"]
+    },
+    {
+      "ad": "thunderbird",
+      "paket": "thunderbird",
+      "kategori": "internet",
+      "epix": false,
+      "baslik": "Thunderbird",
+      "aciklama": "E-posta, takvim ve kişiler. Birden fazla hesap, akıllı klasörler, şifreleme (OpenPGP).",
+      "boyut_mb": 70,
+      "etiketler": ["e-posta", "mail", "takvim", "kişiler"]
+    },
+    {
+      "ad": "remmina",
+      "paket": "remmina",
+      "kategori": "internet",
+      "epix": false,
+      "baslik": "Remmina",
+      "aciklama": "Uzak masaüstü istemcisi. RDP, VNC, SSH ve SPICE protokollerini tek arayüzde toplar.",
+      "boyut_mb": 25,
+      "etiketler": ["rdp", "vnc", "uzak", "masaüstü", "ssh"]
+    },
+    {
+      "ad": "git",
+      "paket": "git",
+      "kategori": "gelistirme",
+      "epix": false,
+      "baslik": "Git",
+      "aciklama": "Sürüm kontrol sistemi. Kod geçmişi, dallanma, işbirliği. Neredeyse tüm açık kaynak projelerin temeli.",
+      "boyut_mb": 12,
+      "etiketler": ["sürüm", "kod", "github", "depo"]
+    },
+    {
+      "ad": "python3-pip",
+      "paket": "python3-pip",
+      "kategori": "gelistirme",
+      "epix": false,
+      "baslik": "Python paket yöneticisi",
+      "aciklama": "Python 3 için pip. PyPI'dan kütüphane kurmak ve sanal ortam yönetmek için gerekli.",
+      "boyut_mb": 8,
+      "etiketler": ["python", "pip", "kütüphane", "geliştirme"]
+    },
+    {
+      "ad": "docker",
+      "paket": "docker.io",
+      "kategori": "gelistirme",
+      "epix": false,
+      "baslik": "Docker",
+      "aciklama": "Konteyner çalıştırma ortamı. Uygulamaları izole paketler hâlinde çalıştırır. Kurulumdan sonra oturumu kapatıp açman gerekebilir.",
+      "boyut_mb": 95,
+      "etiketler": ["konteyner", "docker", "izole", "sunucu"]
+    },
+    {
+      "ad": "gparted",
+      "paket": "gparted",
+      "kategori": "sistem",
+      "epix": false,
+      "baslik": "GParted",
+      "aciklama": "Disk bölümleme editörü. Bölüm oluşturma, boyutlandırma, taşıma, biçimlendirme. DİKKAT: yanlış işlem veri kaybına yol açar.",
+      "boyut_mb": 20,
+      "etiketler": ["disk", "bölüm", "biçimlendirme", "partition"]
+    },
+    {
+      "ad": "timeshift",
+      "paket": "timeshift",
+      "kategori": "sistem",
+      "epix": false,
+      "baslik": "Timeshift",
+      "aciklama": "Sistem anlık görüntüsü ve geri alma. Güncelleme sonrası sorun çıkarsa önceki duruma döndürür.",
+      "boyut_mb": 40,
+      "etiketler": ["yedek", "anlık görüntü", "geri alma", "snapshot"]
+    },
+    {
+      "ad": "virt-manager",
+      "paket": "virt-manager",
+      "kategori": "sistem",
+      "epix": false,
+      "baslik": "Sanal Makine Yöneticisi",
+      "aciklama": "KVM/QEMU sanal makineleri için grafik arayüz. Başka bir işletim sistemini pencere içinde çalıştırır.",
+      "boyut_mb": 45,
+      "etiketler": ["sanal makine", "kvm", "vm", "emülasyon"]
+    },
+    {
+      "ad": "htop",
+      "paket": "htop",
+      "kategori": "sistem",
+      "epix": false,
+      "baslik": "htop",
+      "aciklama": "Etkileşimli süreç izleyici. Hangi uygulama ne kadar bellek/CPU kullanıyor, renkli ve okunur biçimde.",
+      "boyut_mb": 1.5,
+      "etiketler": ["süreç", "bellek", "cpu", "izleme", "terminal"]
+    },
+    {
+      "ad": "transmission",
+      "paket": "transmission-gtk",
+      "kategori": "internet",
+      "epix": false,
+      "baslik": "Transmission",
+      "aciklama": "BitTorrent istemcisi. Hafif, sade arayüz. Büyük dosya indirmede (ör. ISO) kullanışlı.",
+      "boyut_mb": 10,
+      "etiketler": ["torrent", "indirme", "bittorrent", "p2p"]
+    },
+    {
+      "ad": "simple-scan",
+      "paket": "simple-scan",
+      "kategori": "ofis",
+      "epix": false,
+      "baslik": "Belge Tarayıcı",
+      "aciklama": "Tarayıcıdan belge ve fotoğraf almak için basit arayüz. PDF veya resim olarak kaydeder.",
+      "boyut_mb": 8,
+      "etiketler": ["tarayıcı", "scanner", "pdf", "belge"]
+    },
+    {
+      "ad": "keepassxc",
+      "paket": "keepassxc",
+      "kategori": "sistem",
+      "epix": false,
+      "baslik": "KeePassXC",
+      "aciklama": "Parola kasası. Tüm parolalar tek şifreli dosyada; tarayıcı eklentisi ve otomatik doldurma.",
+      "boyut_mb": 30,
+      "etiketler": ["parola", "şifre", "güvenlik", "kasa"]
+    },
+    {
+      "ad": "gnome-software",
+      "paket": "gnome-software",
+      "kategori": "epixos",
+      "epix": false,
+      "baslik": "GNOME Yazılım (grafik mağaza)",
+      "aciklama": "Grafik uygulama mağazası. DİKKAT: yaklaşık 120 MB bellek kullanır — 2 GB'lık makinelerde önerilmez. Terminalde `epix-market` daha hafif.",
+      "boyut_mb": 35,
+      "etiketler": ["mağaza", "grafik", "yazılım", "gui"]
+    }
+  ]
+}

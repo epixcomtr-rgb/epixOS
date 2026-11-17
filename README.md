@@ -141,6 +141,64 @@ epixOS bunu GRUB'da ve `/etc/default/grub.d/99-epixos.cfg` içinde gönderir.
 `scripts/verify-iso.sh` bu parametrenin ISO'da olduğunu denetler.
 Ayrıntılı kanıt zinciri: [docs/05-KARARLAR.md](docs/05-KARARLAR.md).
 
+## Uygulama mağazası
+
+İki yerde, **tek kaynaktan** beslenen bir katalog var:
+
+| Yer | Ne |
+|---|---|
+| https://os.epix.tr/market | web mağazası — açıklama, boyut, kopyalanabilir kurulum komutu |
+| `epix-market` | terminal komutu — aynı katalog, ağ gerekmez |
+
+Tek kaynak: `catalog/katalog.json`. Bir uygulamayı oraya ekleyince
+**ikisi birden** güncellenir:
+
+```bash
+./catalog/uret.py          # dist/epix-market + site/market/index.html üret
+./catalog/uret.py --kontrol # sadece doğrula (bozuk JSON'da gürültülü hata)
+```
+
+> **Neden üretici betik:** katalog iki yerde elle tutulsaydı kaçınılmaz
+> olarak ayrışırdı ve sitede gösterilen komut çalışmazdı. Üretici,
+> kategori kimliği ve paket adı tekrarlarını da denetler.
+
+### Terminalde
+
+```bash
+epix-market                    # kategori özeti
+epix-market liste              # tüm uygulamalar
+epix-market liste grafik       # tek kategori
+epix-market ara fotoğraf       # ad / açıklama / etiket araması
+epix-market bilgi gimp         # detay + kurulum komutu
+epix-market kur gimp vlc       # kur (sudo)
+```
+
+`epix-market` **`epixos-base`** paketiyle gelir. Katalog komutun içine
+gömülüdür; `epix-market liste` için internet gerekmez.
+
+### Kataloğa uygulama eklemek
+
+`catalog/katalog.json` içindeki `uygulamalar` dizisine bir kayıt ekle:
+
+```json
+{
+  "ad": "gimp",
+  "paket": "gimp",
+  "kategori": "grafik",
+  "epix": false,
+  "baslik": "GIMP",
+  "aciklama": "Güçlü ve ücretsiz fotoğraf düzenleyici…",
+  "boyut_mb": 95,
+  "etiketler": ["fotoğraf", "resim", "düzenleme"]
+}
+```
+
+Sonra `./catalog/uret.py && ./scripts/deploy-site.sh`.
+
+> **Kural:** `paket` alanı noble (Ubuntu 24.04) depolarında **gerçekten
+> var olmalı**. Olmayan paket yazmak, kullanıcıya çalışmayan komut
+> vermek demektir. `apt-cache policy <paket>` ile doğrula.
+
 ## Tema ve modüller (APT deposu)
 
 ISO'yu **yeniden derlemeden** tema ve modül güncellemesi alabilirsin.

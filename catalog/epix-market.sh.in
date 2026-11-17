@@ -1,0 +1,205 @@
+#!/bin/sh
+# epix-market — epixOS uygulama kataloğu
+#
+# Katalog verisi bu dosyanın sonunda gömülüdür (@KATALOG@ yerine
+# derleme sırasında catalog/katalog.json'dan üretilir). Gömülü olması
+# bilinçli: komut ağ olmadan da çalışır, "--liste" için internet gerekmez.
+#
+# Kullanım:
+#   epix-market                    kategori özeti
+#   epix-market liste              tüm uygulamalar
+#   epix-market liste grafik       tek kategori
+#   epix-market ara fotoğraf       isim/açıklama/etiket araması
+#   epix-market bilgi gimp         detay + kurulum komutu
+#   epix-market kur gimp vlc       kur (sudo ister)
+#   epix-market --help
+set -eu
+
+# Renkler yalnızca uçbirimde (log dosyasına yazarken kod çıkmasın)
+if [ -t 1 ]; then
+  B=$(printf '\033[1m'); N=$(printf '\033[0m')
+  L=$(printf '\033[38;5;191m'); D=$(printf '\033[2m')
+  G=$(printf '\033[32m'); Y=$(printf '\033[33m')
+else
+  B=""; N=""; L=""; D=""; G=""; Y=""
+fi
+
+# ---------------------------------------------------------------- katalog
+# Satır biçimi (sekme ayraçlı):
+#   kategori_id <TAB> kategori_ad <TAB> paket <TAB> başlık <TAB>
+#   boyut_mb <TAB> epix(0|1) <TAB> etiketler <TAB> açıklama
+KATALOG=$(cat <<'KATALOG_EOF'
+@KATALOG@
+KATALOG_EOF
+)
+
+kategoriler() {
+  printf '%s' "$KATALOG" | awk -F'\t' 'NF>=2 && !seen[$1]++ {printf "%s\t%s\n", $1, $2}'
+}
+
+uygulamalar() {
+  # $1 verilirse o kategoriyle süz
+  if [ "$#" -gt 0 ] && [ -n "${1:-}" ]; then
+    printf '%s\n' "$KATALOG" | awk -F'\t' -v k="$1" 'NF>=8 && $1==k'
+  else
+    printf '%s\n' "$KATALOG" | awk -F'\t' 'NF>=8'
+  fi
+}
+
+# ---------------------------------------------------------------- yardım
+yardim() {
+  cat <<EOF
+${B}epix-market${N} — epixOS uygulama kataloğu
+
+  ${B}epix-market${N}                kategori özeti
+  ${B}epix-market liste${N}          tüm uygulamalar
+  ${B}epix-market liste grafik${N}   tek kategori
+  ${B}epix-market ara fotoğraf${N}   arama (ad, açıklama, etiket)
+  ${B}epix-market bilgi gimp${N}     detay ve kurulum komutu
+  ${B}epix-market kur gimp vlc${N}   kur (sudo gerekir)
+  ${B}epix-market --kategoriler${N}  sadece kategori kimlikleri
+
+Ayrıntılı katalog: https://os.epix.tr/market
+EOF
+}
+
+# ---------------------------------------------------------------- liste
+liste() {
+  kat="${1:-}"
+  if [ -n "$kat" ] && ! kategoriler | cut -f1 | grep -qx "$kat"; then
+    printf '%sHATA:%s "%s" diye bir kategori yok.\n' "$Y" "$N" "$kat" >&2
+    printf 'Geçerli kategoriler: %s\n' "$(kategoriler | cut -f1 | tr '\n' ' ')" >&2
+    exit 1
+  fi
+
+  if [ -n "$kat" ]; then
+    baslik=$(kategoriler | awk -F'\t' -v k="$kat" '$1==k{print $2}')
+    printf '\n%s%s%s\n' "$B$L" "$baslik" "$N"
+  fi
+
+  uygulamalar "$kat" | while IFS="$(printf '\t')" read -r kid kad pak ad boyut epi eti acik; do
+    # epixOS paketi işareti
+    if [ "$epi" = "1" ]; then isaret="${L}*${N} "; else isaret="  "; fi
+    if [ -n "$boyut" ] && [ "$boyut" != "0" ]; then
+      b=$(printf '%s MB' "$boyut")
+    else
+      b=""
+    fi
+    printf '%s%-22s %s%-9s%s %s\n' "$isaret" "$pak" "$D" "$b" "$N" "$ad"
+  done
+  printf '\n%s* = epixOS kendi paketi  ·  ayrıntı: epix-market bilgi <paket>%s\n' "$D" "$N"
+}
+
+# ---------------------------------------------------------------- arama
+ara() {
+  [ "$#" -ge 1 ] || { printf '%sHATA:%s aranacak kelime gerekli\n' "$Y" "$N" >&2; exit 1; }
+  q=$(printf '%s' "$*" | tr '[:upper:]' '[:lower:]')
+  sonuc=$(printf '%s\n' "$KATALOG" | awk -F'\t' -v q="$q" '
+    NF>=8 {
+      satir=tolower($3" "$4" "$7" "$8)
+      if (index(satir, q)) print
+    }')
+
+  if [ -z "$sonuc" ]; then
+    printf '%s"%s" için sonuç yok.%s\n' "$Y" "$*" "$N" >&2
+    printf 'Tüm listeye bak: epix-market liste\n' >&2
+    exit 1
+  fi
+
+  printf '\n%s"%s" için sonuçlar%s\n' "$B" "$*" "$N"
+  printf '%s\n' "$sonuc" | while IFS="$(printf '\t')" read -r kid kad pak ad boyut epi eti acik; do
+    if [ "$epi" = "1" ]; then isaret="${L}*${N} "; else isaret="  "; fi
+    printf '%s%-22s %s\n' "$isaret" "$pak" "$ad"
+  done
+  printf '\n%sayrıntı: epix-market bilgi <paket>%s\n' "$D" "$N"
+}
+
+# ---------------------------------------------------------------- bilgi
+bilgi() {
+  [ "$#" -ge 1 ] || { printf '%sHATA:%s paket adı gerekli\n' "$Y" "$N" >&2; exit 1; }
+  satir=$(printf '%s\n' "$KATALOG" | awk -F'\t' -v p="$1" 'NF>=8 && $3==p')
+  if [ -z "$satir" ]; then
+    # tam eşleşme yoksa aramaya yönlendir
+    printf '%sHATA:%s "%s" katalogda yok.\n' "$Y" "$N" "$1" >&2
+    printf 'Aramayı dene: epix-market ara %s\n' "$1" >&2
+    exit 1
+  fi
+
+  IFS="$(printf '\t')" read -r kid kad pak ad boyut epi eti acik <<EOF
+$satir
+EOF
+
+  printf '\n%s%s%s\n' "$B$L" "$ad" "$N"
+  printf '%s%s%s\n\n' "$D" "$kad" "$N"
+  printf '%s\n\n' "$acik"
+
+  printf '  %spaket%s      : %s\n' "$D" "$N" "$pak"
+  [ -n "$boyut" ] && [ "$boyut" != "0" ] && \
+    printf '  %sboyut%s      : yaklaşık %s MB indirme\n' "$D" "$N" "$boyut"
+  [ -n "$eti" ] && printf '  %setiketler%s  : %s\n' "$D" "$N" "$eti"
+  if [ "$epi" = "1" ]; then
+    printf '  %skaynak%s     : epixOS deposu\n' "$D" "$N"
+  else
+    printf '  %skaynak%s     : Ubuntu deposu\n' "$D" "$N"
+  fi
+
+  # Kurulu mu?
+  if dpkg-query -W -f='${Status}' "$pak" 2>/dev/null | grep -q "install ok installed"; then
+    printf '  %sdurum%s      : %skurulu%s\n' "$D" "$N" "$G" "$N"
+    printf '\n  Kaldırmak için : sudo apt remove %s\n' "$pak"
+  else
+    printf '  %sdurum%s      : kurulu değil\n' "$D" "$N"
+    printf '\n  %sKurulum:%s\n    sudo apt install %s\n' "$B" "$N" "$pak"
+  fi
+  printf '\n'
+}
+
+# ---------------------------------------------------------------- kur
+kur() {
+  [ "$#" -ge 1 ] || { printf '%sHATA:%s en az bir paket adı gerekli\n' "$Y" "$N" >&2; exit 1; }
+
+  # Katalogda olmayan paket adı verilirse uyar (yazım hatası yakalanır)
+  for p in "$@"; do
+    if ! printf '%s\n' "$KATALOG" | awk -F'\t' -v x="$p" 'NF>=8 && $3==x' | grep -q .; then
+      printf '%sUYARI:%s "%s" katalogda yok — yine de denenecek.\n' "$Y" "$N" "$p" >&2
+    fi
+  done
+
+  # epixOS deposu gerekiyor mu ve kurulu mu?
+  epix_gerek=0
+  for p in "$@"; do
+    if printf '%s\n' "$KATALOG" | awk -F'\t' -v x="$p" 'NF>=8 && $3==x && $6=="1"' | grep -q .; then
+      epix_gerek=1
+    fi
+  done
+  if [ "$epix_gerek" = "1" ] && ! grep -qs 'os\.epix\.tr' /etc/apt/sources.list.d/epixos.list 2>/dev/null; then
+    printf '%sUYARI:%s bu paket epixOS deposundan geliyor ama depo kurulu değil.\n' "$Y" "$N" >&2
+    printf '  Önce depoyu kur:\n    curl -fsSL https://os.epix.tr/indir/epix-depo-kur.sh | sudo sh\n\n' >&2
+  fi
+
+  printf '%s==>%s kuruluyor: %s\n' "$G" "$N" "$*"
+  exec sudo apt-get install -y "$@"
+}
+
+# ---------------------------------------------------------------- ana
+case "${1:-}" in
+  "")            kategoriler | while IFS="$(printf '\t')" read -r kid kad; do
+                   n=$(uygulamalar "$kid" | wc -l)
+                   printf '  %s%-16s%s %s%2s uygulama%s\n' "$B" "$kid" "$N" "$D" "$n" "$N"
+                 done
+                 printf '\n  %s%-16s%s %s%2s uygulama%s\n' "$B" "toplam" "$N" "$D" \
+                   "$(uygulamalar | wc -l)" "$N"
+                 printf '\n  ayrıntı : epix-market liste [kategori]\n'
+                 printf '  arama   : epix-market ara <kelime>\n'
+                 printf '  katalog : https://os.epix.tr/market\n' ;;
+  liste|list)    shift; liste "${1:-}" ;;
+  ara|search)    shift; ara "$@" ;;
+  bilgi|info)    shift; bilgi "${1:-}" ;;
+  kur|install)   shift; kur "$@" ;;
+  --kategoriler) kategoriler | cut -f1 ;;
+  --help|-h|help) yardim ;;
+  *)
+    printf '%sHATA:%s bilinmeyen komut: %s\n\n' "$Y" "$N" "$1" >&2
+    yardim >&2
+    exit 1 ;;
+esac

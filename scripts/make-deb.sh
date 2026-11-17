@@ -11,7 +11,16 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CHROOT="$ROOT/build/chroot"
+# Varyant yapisi: her varyantin kendi chroot'u var (build/<varyant>/chroot).
+# Tek chroot paylasilirsa headless derlemesi masaustu chroot'una GNOME
+# birakir. Varsayilan desktop; EPIX_VARIANT ile degistirilebilir.
+VARIANT="${EPIX_VARIANT:-desktop}"
+CHROOT="$ROOT/build/$VARIANT/chroot"
+if [[ ! -d "$CHROOT" ]]; then
+  echo "HATA: chroot yok: $CHROOT" >&2
+  echo "  mevcut: $(ls -d "$ROOT"/build/*/chroot 2>/dev/null | sed 's|.*/build/||;s|/chroot||' | tr '\n' ' ')" >&2
+  exit 1
+fi
 DIST="$ROOT/dist"
 BUILD="$ROOT/build/deb"
 
@@ -49,6 +58,17 @@ for f in epix epix-ai epix-ai-gui epix-ssh epix-hw epix-doctor epix-rescue epix-
     err "  $f YOK — atlandı"
   fi
 done
+
+# ---- epix-market: catalog/katalog.json'dan uretilir (tek kaynak).
+# Chroot'tan DEGIL, dogrudan katalogdan alinir; boylece ISO derlemesi
+# beklemeden katalog guncellenebilir.
+if [[ ! -f "$ROOT/dist/epix-market" ]]; then
+  err "dist/epix-market YOK — once ./catalog/uret.py calistir"
+  exit 1
+fi
+install -m 755 "$ROOT/dist/epix-market" "$BUILD/usr/local/bin/epix-market"
+n=$(awk -F'\t' 'NF>=8' "$ROOT/dist/epix-market" | wc -l)
+ok "  epix-market ($n katalog kaydi)"
 
 # ---- GPU / açılış düzeltmeleri
 # vga=791: B560/Ironlake paneli bu parametre olmadan sinyal üretmiyor.
