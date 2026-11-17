@@ -192,16 +192,18 @@ GTKEOF
 
 # GTK4: adwaita adını koruyup renk katmanı ekliyoruz
 cat > "$GTKDIR/gtk-4.0/gtk.css" <<GTK4EOF
-/* epixOS — GTK4 renk katmanı
- * GTK4'te @define-color kullanılmaz; libadwaita CSS değişkenleri kullanılır. */
-
-:root {
-  --accent-color: $LIME;
-  --accent-bg-color: $LIME;
-  --accent-fg-color: $NAVY;
-  --accent-hover-color: $LIME_DARK;
-  --accent-active-color: shade($LIME_DARK, 0.9);
-}
+/* epixOS — GTK4 / libadwaita renk katmanı
+ *
+ * DÜRÜST NOT: libadwaita /usr/share/themes/<ad>/gtk-4.0/gtk.css DOSYASINI
+ * OKUMAZ (tema desteğini bilinçli olarak kaldırdı). Vurgu rengini
+ * değiştirmenin tek yolu kullanıcı CSS'idir:
+ *     ~/.config/gtk-4.0/gtk.css   ->  @define-color accent_bg_color ...
+ * `epix-tema` komutu bu dosyayı yazar. Bu dosya pakette yalnızca
+ * referans amacıyla duruyor.
+ *
+ * Aşağıdaki :root { --accent-color } YAKLAŞIMI ÇALIŞMAZ — gerçek
+ * ölçüimde hesap makinesinin "=" düğmesi turuncu kaldı (GNOME 46,
+ * libadwaita 1.5). */
 
 /* Yıkıcı eylem varsayılan kırmızıda kalır */
 GTK4EOF
@@ -467,8 +469,12 @@ case "${1:-}" in
     echo "Renk duzeni: $(gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null)"
     ;;
   *)
+    # DİKKAT: burada `sudo` ÇAĞRILMAZ. epix-tema normal kullanıcı olarak
+    # koşar; `sudo dconf update` interaktif şifre sorar ve betik sonsuza
+    # kadar bekler (gerçek ölçümde 400 saniye askıda kaldı). Derlenmiş
+    # veritabanını zaten paketin postinst'i root olarak güncelliyor.
     if command -v dconf >/dev/null 2>&1; then
-      dconf update 2>/dev/null || sudo dconf update 2>/dev/null || true
+      dconf update 2>/dev/null || true
     fi
     if command -v gsettings >/dev/null 2>&1; then
       gsettings set org.gnome.desktop.interface gtk-theme 'epixOS-dark' 2>/dev/null || true
@@ -482,6 +488,29 @@ case "${1:-}" in
       gsettings set org.gnome.desktop.background secondary-color '#16404b' 2>/dev/null || true
       gsettings set org.gnome.desktop.wm.preferences theme 'epixOS-dark' 2>/dev/null || true
     fi
+    # GTK4/libadwaita: vurgu rengi YALNIZCA kullanıcı CSS'i ile değişir.
+    # Kendi bloğumuzu işaretleriz; kullanıcının elle eklediği satırlar korunur.
+    GTK4_DIR="$HOME/.config/gtk-4.0"
+    GTK4_CSS="$GTK4_DIR/gtk.css"
+    mkdir -p "$GTK4_DIR" 2>/dev/null || true
+    if [ -f "$GTK4_CSS" ] && grep -q 'epixOS-tema-baslangic' "$GTK4_CSS" 2>/dev/null; then
+      sed -i '/epixOS-tema-baslangic/,/epixOS-tema-bitis/d' "$GTK4_CSS" 2>/dev/null || true
+    fi
+    if [ -w "$GTK4_DIR" ]; then
+      cat >> "$GTK4_CSS" <<'CSSBLOCK'
+/* epixOS-tema-baslangic */
+@define-color accent_bg_color #e2ff5e;
+@define-color accent_fg_color #16404b;
+@define-color accent_color #e2ff5e;
+@define-color window_bg_color #16232a;
+@define-color window_fg_color #e8f1f2;
+@define-color view_bg_color #11272e;
+@define-color view_fg_color #e8f1f2;
+/* epixOS-tema-bitis */
+CSSBLOCK
+      echo "  GTK4 vurgu dosyası: $GTK4_CSS"
+    fi
+
     echo "epixOS teması uygulandı (lime #e2ff5e / navy #16404b)"
     echo "Değişiklikler için oturumu kapatıp açman gerekebilir."
     ;;
